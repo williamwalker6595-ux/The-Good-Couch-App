@@ -6,8 +6,8 @@ texting (Quo) → owner-approved disposition → quote → Todoist scheduling.
 See `goodcouchappspec.md`-style project brief for full product context. This repo is being
 built incrementally following the suggested session order:
 
-1. **Repo scaffold + Postgres schema + migrations** ← this session
-2. Quo webhook receiver + outbound send endpoint
+1. **Repo scaffold + Postgres schema + migrations**
+2. **Quo webhook receiver + outbound send endpoint** ← this session
 3. Lead intake endpoint + basic dashboard (read-only)
 4. Condition assessment extraction (AI)
 5. Disposition suggestion (AI) + approval UI
@@ -78,4 +78,26 @@ checks DB connectivity.
 | `DATABASE_URL` | Postgres connection string |
 | `ANTHROPIC_API_KEY` | Claude API — conversation drafting, extraction, disposition suggestion |
 | `QUO_API_KEY` | Quo texting API |
+| `QUO_FROM_NUMBER` | Your Quo business number (E.164), used as the default outbound sender |
+| `QUO_WEBHOOK_SIGNING_KEY` | `whsec_...` secret shown when you create the webhook in the Quo dashboard |
+| `QUO_API_BASE_URL` | Override only if Quo's API host differs from the default (`https://api.quo.com`) |
 | `TODOIST_API_TOKEN` | Todoist scheduling API |
+
+## Deploying to Railway
+
+The repo is an npm workspaces monorepo (root + `server/`), so build/start must run from the
+**repository root**, not from `server/` — a root-level `railway.json` pins this explicitly
+(`npm ci && npm run build` to build, `npm run start` to run), so Nixpacks doesn't have to guess.
+
+1. Create a new Railway project from this GitHub repo. Leave the service's **Root Directory**
+   at the repo root (blank/default) — do not point it at `server/`, or the workspace install
+   will break.
+2. Add a Postgres plugin/service in the same Railway project; it sets `DATABASE_URL`
+   automatically for services in that project.
+3. Set the remaining secrets from the table above as environment variables on the service.
+4. After the first successful deploy, run migrations once against the Railway Postgres
+   instance — either via `railway run npm run migrate` (Railway CLI) or a one-off shell in the
+   Railway dashboard. Re-run it after every deploy that adds new migration files.
+5. Once deployed, register a webhook in the Quo dashboard pointed at
+   `https://<your-railway-url>/webhooks/quo`, subscribed to `message.received`, and copy its
+   `whsec_...` signing key into `QUO_WEBHOOK_SIGNING_KEY`.
