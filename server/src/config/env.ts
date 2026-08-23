@@ -16,5 +16,8 @@ export const env = {
   databaseUrl: required("DATABASE_URL"),
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
   quoApiKey: process.env.QUO_API_KEY ?? "",
+  quoApiBaseUrl: process.env.QUO_API_BASE_URL ?? "https://api.quo.com",
+  quoFromNumber: process.env.QUO_FROM_NUMBER ?? "",
+  quoWebhookSigningKey: process.env.QUO_WEBHOOK_SIGNING_KEY ?? "",
   todoistApiToken: process.env.TODOIST_API_TOKEN ?? "",
 };
