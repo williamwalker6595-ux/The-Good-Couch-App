@@ -1,0 +1,14 @@
+{
+  "name": "the-good-couch-app",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "server"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=server",
+    "build": "npm run build --workspace=server",
+    "migrate": "npm run migrate --workspace=server",
+    "migrate:down": "npm run migrate:down --workspace=server"
+  }
+}
