@@ -30,6 +30,15 @@ quoWebhookRouter.post(
         env.quoWebhookSigningKey,
       );
       if (!valid) {
+        console.warn("Quo webhook signature check failed", {
+          headers: {
+            "webhook-id": req.header("webhook-id"),
+            "webhook-timestamp": req.header("webhook-timestamp"),
+            "webhook-signature": req.header("webhook-signature"),
+            "openphone-signature": req.header("openphone-signature"),
+          },
+          allHeaderNames: Object.keys(req.headers),
+        });
         res.status(401).json({ error: "invalid signature" });
         return;
       }
