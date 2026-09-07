@@ -10,8 +10,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "migrate": "node-pg-migrate up -j ts --migration-file-language ts -m src/db/migrations",
-    "migrate:down": "node-pg-migrate down -j ts --migration-file-language ts -m src/db/migrations",
+    "migrate": "node-pg-migrate up -m dist/db/migrations",
+    "migrate:down": "node-pg-migrate down -m dist/db/migrations",
     "migrate:create": "node-pg-migrate create -j ts --migration-file-language ts -m src/db/migrations"
   },
   "dependencies": {
