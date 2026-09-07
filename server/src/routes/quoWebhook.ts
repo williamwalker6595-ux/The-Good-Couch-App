@@ -25,6 +25,7 @@ quoWebhookRouter.post(
           "webhook-id": req.header("webhook-id"),
           "webhook-timestamp": req.header("webhook-timestamp"),
           "webhook-signature": req.header("webhook-signature"),
+          "openphone-signature": req.header("openphone-signature"),
         },
         req.rawBody,
         env.quoWebhookSigningKey,
