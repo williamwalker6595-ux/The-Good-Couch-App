@@ -5,6 +5,9 @@
   "workspaces": [
     "server"
   ],
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "npm run dev --workspace=server",
     "build": "npm run build --workspace=server",
