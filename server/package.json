@@ -15,12 +15,13 @@
     "migrate:create": "node-pg-migrate create -j ts --migration-file-language ts -m src/db/migrations"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "helmet": "^7.1.0",
     "pg": "^8.12.0",
-    "zod": "^3.23.8"
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

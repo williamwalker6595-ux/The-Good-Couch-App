@@ -25,3 +25,32 @@ export async function getLatestConditionAssessmentByLead(
   );
   return result.rows[0] ?? null;
 }
+
+export async function insertConditionAssessment(input: {
+  leadId: string;
+  smokingHousehold: boolean | null;
+  pets: boolean | null;
+  blemishes: string | null;
+  odors: string | null;
+  stains: string | null;
+  notes: string | null;
+  photoRefs: string[];
+}): Promise<ConditionAssessment> {
+  const result = await pool.query<ConditionAssessment>(
+    `INSERT INTO condition_assessments
+       (lead_id, smoking_household, pets, blemishes, odors, stains, notes, photo_refs)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING *`,
+    [
+      input.leadId,
+      input.smokingHousehold,
+      input.pets,
+      input.blemishes,
+      input.odors,
+      input.stains,
+      input.notes,
+      input.photoRefs,
+    ],
+  );
+  return result.rows[0];
+}

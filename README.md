@@ -8,8 +8,8 @@ built incrementally following the suggested session order:
 
 1. **Repo scaffold + Postgres schema + migrations**
 2. **Quo webhook receiver + outbound send endpoint**
-3. **Lead intake endpoint + basic dashboard (read-only)** ← this session
-4. Condition assessment extraction (AI)
+3. **Lead intake endpoint + basic dashboard (read-only)**
+4. **Condition assessment extraction (AI)** ← this session
 5. Disposition suggestion (AI) + approval UI
 6. Quote send + accept/decline/counter handling
 7. Todoist integration on acceptance
@@ -82,8 +82,24 @@ API endpoints so far:
 - `GET /leads/:leadId` — lead detail
 - `GET /leads/:leadId/messages` — conversation thread (also `POST` to send an outbound message)
 - `GET /leads/:leadId/condition-assessment` — latest condition assessment, or `null`
+- `POST /leads/:leadId/condition-assessment/extract` — re-run AI extraction now and store a
+  new condition assessment (requires `ANTHROPIC_API_KEY`)
 - `GET /leads/:leadId/disposition` — latest disposition, or `null`
-- `POST /webhooks/quo` — Quo inbound message webhook
+- `POST /webhooks/quo` — Quo inbound message webhook (also auto-runs condition extraction for
+  the lead after logging the message, if `ANTHROPIC_API_KEY` is set)
+
+## AI condition extraction
+
+`server/src/ai/conditionExtraction.ts` sends the lead's full conversation transcript to
+Claude (`claude-opus-5`, via `output_config.format` + a Zod schema for guaranteed-shape JSON)
+and extracts `smoking_household`, `pets`, `blemishes`, `odors`, `stains`, and `notes`. Only
+information explicitly stated in the conversation is extracted — the model is instructed to
+use `null` rather than guess. `photo_refs` is populated directly from the inbound messages'
+media URLs (not model-generated, to avoid hallucinated links). Each run inserts a new
+`condition_assessments` row rather than overwriting the previous one, so the history is kept.
+
+Without `ANTHROPIC_API_KEY` set, the webhook still logs messages normally — extraction is
+just skipped (logged once as a warning-free no-op check, not an error).
 
 ## Running the dashboard
 

@@ -1,5 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
+import {
+  NoConversationError,
+  runConditionExtractionForLead,
+} from "../ai/conditionExtraction";
 import { listConversationMessagesByLead } from "../db/repositories/conversationMessages";
 import { getLatestConditionAssessmentByLead } from "../db/repositories/conditionAssessments";
 import { getLatestDispositionByLead } from "../db/repositories/dispositions";
@@ -63,6 +67,30 @@ leadsRouter.get(
       req.params.leadId,
     );
     res.json(assessment);
+  }),
+);
+
+leadsRouter.post(
+  "/leads/:leadId/condition-assessment/extract",
+  asyncHandler(async (req, res) => {
+    const lead = await getLeadById(req.params.leadId);
+    if (!lead) {
+      res.status(404).json({ error: "lead not found" });
+      return;
+    }
+
+    try {
+      const assessment = await runConditionExtractionForLead(
+        req.params.leadId,
+      );
+      res.status(201).json(assessment);
+    } catch (err) {
+      if (err instanceof NoConversationError) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
+      throw err;
+    }
   }),
 );
 

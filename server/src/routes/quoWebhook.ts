@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { runConditionExtractionForLead } from "../ai/conditionExtraction";
 import { env } from "../config/env";
 import {
   findConversationMessageByQuoId,
@@ -75,5 +76,11 @@ quoWebhookRouter.post(
     });
 
     res.status(200).json({ ok: true });
+
+    if (env.anthropicApiKey) {
+      runConditionExtractionForLead(lead.id).catch((err) => {
+        console.error("Condition extraction failed for lead", lead.id, err);
+      });
+    }
   }),
 );
