@@ -43,3 +43,13 @@ export async function findConversationMessageByQuoId(
   );
   return result.rows[0] ?? null;
 }
+
+export async function listConversationMessagesByLead(
+  leadId: string,
+): Promise<ConversationMessage[]> {
+  const result = await pool.query<ConversationMessage>(
+    "SELECT * FROM conversation_messages WHERE lead_id = $1 ORDER BY created_at ASC",
+    [leadId],
+  );
+  return result.rows;
+}

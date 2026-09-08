@@ -1,14 +1,17 @@
 import { pool } from "../pool";
 
-export type LeadStatus =
-  | "new"
-  | "qualifying"
-  | "awaiting_disposition"
-  | "disposition_approved"
-  | "quote_sent"
-  | "accepted"
-  | "declined"
-  | "scheduled";
+export const LEAD_STATUS_VALUES = [
+  "new",
+  "qualifying",
+  "awaiting_disposition",
+  "disposition_approved",
+  "quote_sent",
+  "accepted",
+  "declined",
+  "scheduled",
+] as const;
+
+export type LeadStatus = (typeof LEAD_STATUS_VALUES)[number];
 
 export interface Lead {
   id: string;
@@ -57,4 +60,20 @@ export async function findOrCreateLeadByPhone(phone: string): Promise<Lead> {
     return existing;
   }
   return createLead({ name: "Unknown", phone, source: "quo-inbound" });
+}
+
+export async function listLeads(filter?: {
+  status?: LeadStatus;
+}): Promise<Lead[]> {
+  if (filter?.status) {
+    const result = await pool.query<Lead>(
+      "SELECT * FROM leads WHERE status = $1 ORDER BY created_at DESC",
+      [filter.status],
+    );
+    return result.rows;
+  }
+  const result = await pool.query<Lead>(
+    "SELECT * FROM leads ORDER BY created_at DESC",
+  );
+  return result.rows;
 }

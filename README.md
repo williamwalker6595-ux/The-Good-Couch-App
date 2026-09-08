@@ -7,8 +7,8 @@ See `goodcouchappspec.md`-style project brief for full product context. This rep
 built incrementally following the suggested session order:
 
 1. **Repo scaffold + Postgres schema + migrations**
-2. **Quo webhook receiver + outbound send endpoint** ← this session
-3. Lead intake endpoint + basic dashboard (read-only)
+2. **Quo webhook receiver + outbound send endpoint**
+3. **Lead intake endpoint + basic dashboard (read-only)** ← this session
 4. Condition assessment extraction (AI)
 5. Disposition suggestion (AI) + approval UI
 6. Quote send + accept/decline/counter handling
@@ -25,10 +25,13 @@ server/           Node.js + TypeScript + Express API
     routes/       Express route handlers
     app.ts        Express app wiring
     index.ts      Process entrypoint
-```
 
-A `web/` workspace (React + TypeScript dashboard) will be added in the session that builds
-the dashboard (step 3 in the build order above).
+web/               React + TypeScript dashboard (Vite)
+  src/
+    api.ts         Typed fetch client for the backend's read-only endpoints
+    pages/         LeadListPage, LeadDetailPage
+    components/    Shared UI pieces (StatusBadge)
+```
 
 ## Prerequisites
 
@@ -70,6 +73,29 @@ npm run dev
 
 Starts the Express server on `PORT` (default `3000`) with a `GET /health` endpoint that
 checks DB connectivity.
+
+API endpoints so far:
+
+- `POST /webhooks/lead-intake` — creates a lead from a website form submission (name, phone,
+  address, source)
+- `GET /leads` — list leads, optional `?status=` filter
+- `GET /leads/:leadId` — lead detail
+- `GET /leads/:leadId/messages` — conversation thread (also `POST` to send an outbound message)
+- `GET /leads/:leadId/condition-assessment` — latest condition assessment, or `null`
+- `GET /leads/:leadId/disposition` — latest disposition, or `null`
+- `POST /webhooks/quo` — Quo inbound message webhook
+
+## Running the dashboard
+
+```bash
+npm run dev:web
+```
+
+Starts the Vite dev server (default `http://localhost:5173`) pointed at the API via
+`web/.env.development`'s `VITE_API_BASE_URL` (defaults to `http://localhost:3000`). It's a
+read-only view for now: a lead list with a status filter, and a lead detail page showing the
+conversation thread, condition assessment, and suggested disposition (empty states until the
+AI extraction/disposition sessions are built).
 
 ## Secrets
 

@@ -2,6 +2,8 @@ import cors from "cors";
 import express, { NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import { healthRouter } from "./routes/health";
+import { leadIntakeRouter } from "./routes/leadIntake";
+import { leadsRouter } from "./routes/leads";
 import { messagesRouter } from "./routes/messages";
 import { quoWebhookRouter } from "./routes/quoWebhook";
 
@@ -21,6 +23,8 @@ export function createApp() {
   app.use(healthRouter);
   app.use(quoWebhookRouter);
   app.use(messagesRouter);
+  app.use(leadIntakeRouter);
+  app.use(leadsRouter);
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     console.error(err);
