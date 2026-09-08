@@ -16,6 +16,7 @@
     "build:web": "npm run build --workspace=web",
     "start": "npm run start --workspace=server",
     "migrate": "npm run migrate --workspace=server",
-    "migrate:down": "npm run migrate:down --workspace=server"
+    "migrate:down": "npm run migrate:down --workspace=server",
+    "history:stats": "npm run history:stats --workspace=server"
   }
 }
