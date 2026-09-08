@@ -37,3 +37,21 @@ export async function countQuoHistoryConversations(): Promise<number> {
   );
   return Number(result.rows[0].count);
 }
+
+export interface StoredConversation {
+  id: string;
+  messages: QuoHistoryMessage[];
+}
+
+export async function listConversationsWithoutSummary(): Promise<
+  StoredConversation[]
+> {
+  const result = await pool.query<StoredConversation>(
+    `SELECT c.id, c.messages
+     FROM quo_history_conversations c
+     LEFT JOIN quo_history_summaries s ON s.conversation_id = c.id
+     WHERE s.conversation_id IS NULL
+     ORDER BY c.quo_created_at ASC`,
+  );
+  return result.rows;
+}

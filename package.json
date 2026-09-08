@@ -18,6 +18,8 @@
     "migrate": "npm run migrate --workspace=server",
     "migrate:down": "npm run migrate:down --workspace=server",
     "history:stats": "npm run history:stats --workspace=server",
-    "history:pull": "npm run history:pull --workspace=server"
+    "history:pull": "npm run history:pull --workspace=server",
+    "history:summarize": "npm run history:summarize --workspace=server",
+    "history:playbook": "npm run history:playbook --workspace=server"
   }
 }

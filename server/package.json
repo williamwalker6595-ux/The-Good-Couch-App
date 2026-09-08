@@ -14,7 +14,9 @@
     "migrate:down": "node-pg-migrate down -m dist/db/migrations",
     "migrate:create": "node-pg-migrate create -j ts --migration-file-language ts -m src/db/migrations",
     "history:stats": "node dist/scripts/quoHistoryStats.js",
-    "history:pull": "node dist/scripts/quoHistoryPull.js"
+    "history:pull": "node dist/scripts/quoHistoryPull.js",
+    "history:summarize": "node dist/scripts/quoHistorySummarize.js",
+    "history:playbook": "node dist/scripts/quoHistoryPlaybook.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
