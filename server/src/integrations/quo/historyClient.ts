@@ -29,6 +29,23 @@ interface Page<T> {
   nextPageToken: string | null;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryDelayMs(response: Response, attempt: number): number {
+  const retryAfter = response.headers.get("retry-after");
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) return seconds * 1000;
+    const dateMs = Date.parse(retryAfter);
+    if (!Number.isNaN(dateMs)) return Math.max(0, dateMs - Date.now());
+  }
+  return Math.min(30_000, 1000 * 2 ** attempt);
+}
+
+const MAX_RETRIES = 6;
+
 async function quoGet<T>(
   path: string,
   params: Record<string, string | string[] | number | undefined>,
@@ -43,14 +60,31 @@ async function quoGet<T>(
     }
   }
 
-  const response = await fetch(url, {
-    headers: { Authorization: env.quoApiKey },
-  });
-  const bodyText = await response.text();
-  if (!response.ok) {
-    throw new QuoApiError(response.status, bodyText);
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const response = await fetch(url, {
+      headers: { Authorization: env.quoApiKey },
+    });
+
+    if (response.status === 429 || response.status >= 500) {
+      if (attempt === MAX_RETRIES) {
+        throw new QuoApiError(response.status, await response.text());
+      }
+      const delay = retryDelayMs(response, attempt);
+      console.log(
+        `Quo API ${response.status}, retrying in ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})`,
+      );
+      await sleep(delay);
+      continue;
+    }
+
+    const bodyText = await response.text();
+    if (!response.ok) {
+      throw new QuoApiError(response.status, bodyText);
+    }
+    return JSON.parse(bodyText) as T;
   }
-  return JSON.parse(bodyText) as T;
+
+  throw new QuoApiError(0, "unreachable");
 }
 
 export async function listConversationsPage(opts: {
@@ -58,18 +92,23 @@ export async function listConversationsPage(opts: {
   pageToken?: string;
   createdAfter?: string;
   createdBefore?: string;
+  phoneNumbers?: string[];
 }): Promise<Page<QuoConversation>> {
   return quoGet<Page<QuoConversation>>("/v1/conversations", {
     maxResults: opts.maxResults ?? 100,
     pageToken: opts.pageToken,
     createdAfter: opts.createdAfter,
     createdBefore: opts.createdBefore,
+    phoneNumbers: opts.phoneNumbers,
   });
 }
+
+const PAGE_PACING_MS = 400;
 
 export async function* iterateAllConversations(opts: {
   createdAfter?: string;
   createdBefore?: string;
+  phoneNumbers?: string[];
 }): AsyncGenerator<QuoConversation> {
   let pageToken: string | undefined;
   do {
@@ -78,6 +117,7 @@ export async function* iterateAllConversations(opts: {
       yield conversation;
     }
     pageToken = page.nextPageToken ?? undefined;
+    if (pageToken) await sleep(PAGE_PACING_MS);
   } while (pageToken);
 }
 

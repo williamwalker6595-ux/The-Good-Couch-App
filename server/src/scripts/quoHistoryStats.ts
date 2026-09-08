@@ -3,7 +3,12 @@
 // `node dist/scripts/quoHistoryStats.js` (e.g. from Railway's Console —
 // this needs real internet access to api.quo.com, which local/sandboxed
 // dev environments may not have).
+import { env } from "../config/env";
 import { iterateAllConversations } from "../integrations/quo/historyClient";
+
+// Scoped to "TGC - Pickup Phone" only, per instruction — the other Quo
+// inboxes (Will's Inbox, Atlanta) are excluded.
+const TGC_PICKUP_PHONE = env.quoFromNumber;
 
 async function main() {
   const twoYearsAgo = new Date();
@@ -16,6 +21,7 @@ async function main() {
 
   for await (const conversation of iterateAllConversations({
     createdAfter: twoYearsAgo.toISOString(),
+    phoneNumbers: [TGC_PICKUP_PHONE],
   })) {
     total += 1;
     if (!minCreatedAt || conversation.createdAt < minCreatedAt) {
