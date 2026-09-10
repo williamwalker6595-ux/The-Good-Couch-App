@@ -129,7 +129,7 @@ AI extraction/disposition sessions are built).
 
 The repo is an npm workspaces monorepo (root + `server/`), so build/start must run from the
 **repository root**, not from `server/` — a root-level `railway.json` pins this explicitly
-(`npm ci && npm run build` to build, `npm run start` to run), so Nixpacks doesn't have to guess.
+(`npm run build` to build, `npm run start` to run), so Nixpacks doesn't have to guess.
 
 1. Create a new Railway project from this GitHub repo. Leave the service's **Root Directory**
    at the repo root (blank/default) — do not point it at `server/`, or the workspace install
@@ -143,3 +143,20 @@ The repo is an npm workspaces monorepo (root + `server/`), so build/start must r
 5. Once deployed, register a webhook in the Quo dashboard pointed at
    `https://<your-railway-url>/webhooks/quo`, subscribed to `message.received`, and copy its
    `whsec_...` signing key into `QUO_WEBHOOK_SIGNING_KEY`.
+
+### Deploying the dashboard
+
+The dashboard (`web/`) is a separate Railway **service** in the same project, built as a
+static site and served by the `serve` package — it is not part of the API server's deploy.
+Vite bakes `VITE_API_BASE_URL` into the built JS at build time, so it must be set on this
+service (not the server service) before building.
+
+1. In the same Railway project, add a new service from the same GitHub repo.
+2. In that service's **Settings → Root Directory**, set it to `web`. This makes Railway use
+   `web/railway.json` (`npm run build` to build, `npm run start` to run) and install only
+   `web/`'s dependencies.
+3. Set `VITE_API_BASE_URL` on this service to the server service's public URL, e.g.
+   `https://<server-service>.up.railway.app` (no trailing slash). Find that URL on the server
+   service's Settings → Networking tab.
+4. Deploy. Under Settings → Networking on this new service, generate a public domain — that
+   URL is the dashboard.
