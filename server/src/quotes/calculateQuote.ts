@@ -59,6 +59,8 @@ export async function calculateQuoteAmount(input: {
 
 export interface QuoteOption {
   amount: number | null;
+  distanceMiles: number | null;
+  seatCount: number | null;
   explanation: string | null;
   blockedReason: string | null;
 }
@@ -73,24 +75,43 @@ export interface QuoteOptions {
  * Pre-calculates all three disposition options for a lead, for a one-click
  * approval UI. Options that can't be computed yet (missing address/seat
  * count, or a Maps lookup failure) come back with a null amount and a
- * human-readable blockedReason instead of throwing.
+ * human-readable blockedReason instead of throwing. seatCountOverride lets
+ * the owner correct the AI's photo-based seat count for the "full" option
+ * without touching the stored condition assessment.
  */
 export async function calculateQuoteOptions(input: {
   address: string | null;
   seatCount: number | null;
+  seatCountOverride?: number | null;
 }): Promise<QuoteOptions> {
   const free: QuoteOption = {
     amount: 0,
+    distanceMiles: null,
+    seatCount: null,
     explanation: "No fee",
     blockedReason: null,
   };
+
+  const effectiveSeatCount = input.seatCountOverride ?? input.seatCount;
 
   if (!input.address) {
     const blockedReason = "no pickup address on file yet";
     return {
       free,
-      mileage: { amount: null, explanation: null, blockedReason },
-      full: { amount: null, explanation: null, blockedReason },
+      mileage: {
+        amount: null,
+        distanceMiles: null,
+        seatCount: null,
+        explanation: null,
+        blockedReason,
+      },
+      full: {
+        amount: null,
+        distanceMiles: null,
+        seatCount: effectiveSeatCount,
+        explanation: null,
+        blockedReason,
+      },
     };
   }
 
@@ -103,6 +124,8 @@ export async function calculateQuoteOptions(input: {
       .then(
         (calc): QuoteOption => ({
           amount: calc.amount,
+          distanceMiles: calc.distanceMiles,
+          seatCount: null,
           explanation: calc.explanation,
           blockedReason: null,
         }),
@@ -110,6 +133,8 @@ export async function calculateQuoteOptions(input: {
       .catch(
         (err): QuoteOption => ({
           amount: null,
+          distanceMiles: null,
+          seatCount: null,
           explanation: null,
           blockedReason:
             err instanceof Error ? err.message : "distance lookup failed",
@@ -118,11 +143,13 @@ export async function calculateQuoteOptions(input: {
     calculateQuoteAmount({
       type: "full",
       address: input.address,
-      seatCount: input.seatCount,
+      seatCount: effectiveSeatCount,
     })
       .then(
         (calc): QuoteOption => ({
           amount: calc.amount,
+          distanceMiles: calc.distanceMiles,
+          seatCount: effectiveSeatCount,
           explanation: calc.explanation,
           blockedReason: null,
         }),
@@ -130,6 +157,8 @@ export async function calculateQuoteOptions(input: {
       .catch(
         (err): QuoteOption => ({
           amount: null,
+          distanceMiles: null,
+          seatCount: effectiveSeatCount,
           explanation: null,
           blockedReason:
             err instanceof MissingQuoteInputError

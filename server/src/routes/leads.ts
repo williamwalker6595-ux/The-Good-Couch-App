@@ -155,12 +155,23 @@ leadsRouter.get(
       res.status(404).json({ error: "lead not found" });
       return;
     }
+    const seatCountParsed = z.coerce
+      .number()
+      .int()
+      .nullable()
+      .optional()
+      .safeParse(req.query.seatCount === "" ? null : req.query.seatCount);
+    if (!seatCountParsed.success) {
+      res.status(400).json({ error: seatCountParsed.error.flatten() });
+      return;
+    }
     const conditionAssessment = await getLatestConditionAssessmentByLead(
       lead.id,
     );
     const options = await calculateQuoteOptions({
       address: lead.address,
       seatCount: conditionAssessment?.seat_count ?? null,
+      seatCountOverride: seatCountParsed.data,
     });
     res.json(options);
   }),
@@ -168,6 +179,7 @@ leadsRouter.get(
 
 const quickApproveSchema = z.object({
   type: z.enum(DISPOSITION_TYPE_VALUES),
+  seatCount: z.number().int().nullable().optional(),
 });
 
 leadsRouter.post(
@@ -191,6 +203,7 @@ leadsRouter.post(
     const options = await calculateQuoteOptions({
       address: lead.address,
       seatCount: conditionAssessment?.seat_count ?? null,
+      seatCountOverride: parsed.data.seatCount,
     });
     const option = options[parsed.data.type];
     if (option.amount === null) {

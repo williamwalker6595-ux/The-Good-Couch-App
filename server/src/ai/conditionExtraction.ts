@@ -10,6 +10,9 @@ import {
   insertConditionAssessment,
 } from "../db/repositories/conditionAssessments";
 import { getLeadById, updateLeadAddress } from "../db/repositories/leads";
+import { estimateSeatCountFromPhotos } from "./seatCountVision";
+
+const MIN_VISION_SEAT_COUNT_CONFIDENCE = 0.5;
 
 const conditionExtractionSchema = z.object({
   smoking_household: z
@@ -126,6 +129,26 @@ export async function runConditionExtractionForLead(
     ),
   );
 
+  // Prefer a vision-based seat count from the actual photos over the
+  // customer's own words, when confident — "how many people could sit
+  // side by side" is much more reliably judged from a photo than from
+  // however the customer happened to describe it in text.
+  let seatCount = extracted.seat_count;
+  if (photoRefs.length > 0) {
+    try {
+      const visionResult = await estimateSeatCountFromPhotos(photoRefs);
+      if (
+        visionResult?.seat_count !== null &&
+        visionResult !== null &&
+        visionResult.confidence >= MIN_VISION_SEAT_COUNT_CONFIDENCE
+      ) {
+        seatCount = visionResult.seat_count;
+      }
+    } catch (err) {
+      console.error("Seat count vision failed for lead", leadId, err);
+    }
+  }
+
   const assessment = await insertConditionAssessment({
     leadId,
     smokingHousehold: extracted.smoking_household,
@@ -134,7 +157,7 @@ export async function runConditionExtractionForLead(
     odors: extracted.odors,
     stains: extracted.stains,
     notes: extracted.notes,
-    seatCount: extracted.seat_count,
+    seatCount,
     photoRefs,
   });
 

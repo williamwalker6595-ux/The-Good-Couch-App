@@ -89,6 +89,8 @@ export interface QuoteResponse {
 
 export interface QuoteOption {
   amount: number | null;
+  distanceMiles: number | null;
+  seatCount: number | null;
   explanation: string | null;
   blockedReason: string | null;
 }
@@ -194,16 +196,27 @@ export function rejectLeadDisposition(
 
 export function fetchLeadQuoteOptions(
   leadId: string,
+  seatCountOverride?: number | null,
 ): Promise<QuoteOptions> {
-  return apiGet<QuoteOptions>(`/leads/${leadId}/disposition/quote-options`);
+  const query =
+    seatCountOverride !== undefined && seatCountOverride !== null
+      ? `?seatCount=${seatCountOverride}`
+      : "";
+  return apiGet<QuoteOptions>(
+    `/leads/${leadId}/disposition/quote-options${query}`,
+  );
 }
 
 export function quickApproveDisposition(
   leadId: string,
   type: DispositionType,
+  seatCountOverride?: number | null,
 ): Promise<Disposition> {
   return apiPost<Disposition>(`/leads/${leadId}/disposition/quick-approve`, {
     type,
+    ...(seatCountOverride !== undefined
+      ? { seatCount: seatCountOverride }
+      : {}),
   });
 }
 

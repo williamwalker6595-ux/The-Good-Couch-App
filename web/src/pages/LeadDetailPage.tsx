@@ -133,6 +133,9 @@ export default function LeadDetailPage() {
 
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
+  const [seatCountInput, setSeatCountInput] = useState("");
+  const [seatCountLoading, setSeatCountLoading] = useState(false);
+
   function reload(id: string) {
     let cancelled = false;
     setLoading(true);
@@ -163,6 +166,11 @@ export default function LeadDetailPage() {
           setConditionAssessment(assessmentData);
           setDisposition(dispositionData);
           setQuoteOptions(quoteOptionsData);
+          setSeatCountInput(
+            quoteOptionsData.full.seatCount !== null
+              ? String(quoteOptionsData.full.seatCount)
+              : "",
+          );
           setQuoteResponse(quoteResponseData);
           setQuoteContent(
             dispositionData ? composeQuoteMessagePreview(dispositionData) : "",
@@ -207,12 +215,33 @@ export default function LeadDetailPage() {
     setDispositionActionLoading(true);
     setDispositionActionError(null);
     try {
-      await quickApproveDisposition(leadId, type);
+      const seatCountOverride =
+        type === "full" && seatCountInput.trim() !== ""
+          ? Number(seatCountInput)
+          : undefined;
+      await quickApproveDisposition(leadId, type, seatCountOverride);
       reload(leadId);
     } catch {
       setDispositionActionError("Failed to approve disposition.");
     } finally {
       setDispositionActionLoading(false);
+    }
+  }
+
+  async function handleSeatCountBlur() {
+    if (!leadId) return;
+    const trimmed = seatCountInput.trim();
+    const value = trimmed === "" ? null : Number(trimmed);
+    if (value !== null && (!Number.isInteger(value) || value < 0)) return;
+
+    setSeatCountLoading(true);
+    try {
+      const updated = await fetchLeadQuoteOptions(leadId, value);
+      setQuoteOptions(updated);
+    } catch {
+      // leave the previous quote options in place
+    } finally {
+      setSeatCountLoading(false);
     }
   }
 
@@ -394,24 +423,48 @@ export default function LeadDetailPage() {
                 Pick a disposition — each button shows the pre-calculated
                 quote:
               </p>
-              <div className="button-row">
+              <div className="button-row" style={{ alignItems: "center", flexWrap: "wrap" }}>
                 {DISPOSITION_TYPES.map((type) => {
                   const option = quoteOptions?.[type];
                   const amount = option?.amount ?? null;
+                  const detail =
+                    type === "mileage" && option?.distanceMiles !== null
+                      ? ` (${option?.distanceMiles?.toFixed(1)} mi)`
+                      : type === "full" && option?.seatCount !== null
+                        ? ` (${option?.seatCount} seat${option?.seatCount === 1 ? "" : "s"})`
+                        : "";
                   return (
                     <button
                       key={type}
                       className="button-primary"
                       onClick={() => handleQuickApprove(type)}
-                      disabled={dispositionActionLoading || amount === null}
+                      disabled={
+                        dispositionActionLoading ||
+                        seatCountLoading ||
+                        amount === null
+                      }
                       title={option?.blockedReason ?? option?.explanation ?? undefined}
                     >
                       {formatStatusLabel(type)}
                       {" — "}
-                      {amount !== null ? `$${amount}` : "unavailable"}
+                      {amount !== null ? `$${amount}${detail}` : "unavailable"}
                     </button>
                   );
                 })}
+                <label htmlFor="seat-count-adjust" className="muted" style={{ fontSize: "0.85rem" }}>
+                  Seats (for Full):
+                </label>
+                <input
+                  id="seat-count-adjust"
+                  type="number"
+                  min="0"
+                  step="1"
+                  style={{ width: "4rem" }}
+                  value={seatCountInput}
+                  onChange={(e) => setSeatCountInput(e.target.value)}
+                  onBlur={handleSeatCountBlur}
+                  disabled={dispositionActionLoading || seatCountLoading}
+                />
               </div>
               {quoteOptions &&
                 (quoteOptions.mileage.blockedReason ||
