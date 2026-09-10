@@ -27,6 +27,7 @@ export interface Lead {
   source: string | null;
   status: LeadStatus;
   created_at: string;
+  thumbnail_url: string | null;
 }
 
 export interface ConversationMessage {

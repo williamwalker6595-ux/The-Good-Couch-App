@@ -126,6 +126,24 @@ select {
   text-decoration: none;
 }
 
+.lead-table td:first-child {
+  width: 1%;
+  padding-right: 0;
+}
+
+.lead-thumb {
+  display: block;
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #ecece9;
+}
+
+.lead-thumb-empty {
+  border: 1px dashed var(--border);
+}
+
 .status-badge {
   display: inline-block;
   padding: 0.15rem 0.55rem;

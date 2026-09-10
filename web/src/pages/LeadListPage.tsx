@@ -1,8 +1,32 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import StatusBadge from "../components/StatusBadge";
-import { fetchLeads, LEAD_STATUSES, type Lead, type LeadStatus } from "../api";
+import {
+  fetchLeads,
+  LEAD_STATUSES,
+  mediaProxyUrl,
+  type Lead,
+  type LeadStatus,
+} from "../api";
 import { formatDateTime } from "../format";
+
+function LeadThumbnail({ lead }: { lead: Lead }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!lead.thumbnail_url || failed) {
+    return <div className="lead-thumb lead-thumb-empty" aria-hidden="true" />;
+  }
+
+  return (
+    <img
+      className="lead-thumb"
+      src={mediaProxyUrl(lead.thumbnail_url)}
+      alt=""
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 export default function LeadListPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -57,6 +81,7 @@ export default function LeadListPage() {
         <table className="lead-table">
           <thead>
             <tr>
+              <th aria-label="Photo"></th>
               <th>Name</th>
               <th>Phone</th>
               <th>Status</th>
@@ -66,6 +91,11 @@ export default function LeadListPage() {
           <tbody>
             {leads.map((lead) => (
               <tr key={lead.id}>
+                <td>
+                  <Link to={`/leads/${lead.id}`}>
+                    <LeadThumbnail lead={lead} />
+                  </Link>
+                </td>
                 <td>
                   <Link to={`/leads/${lead.id}`}>{lead.name}</Link>
                 </td>
