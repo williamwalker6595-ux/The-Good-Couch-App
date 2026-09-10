@@ -148,15 +148,33 @@ AI extraction/disposition sessions are built).
 ## Deploying to Railway
 
 The repo is an npm workspaces monorepo (root + `server/`), so build/start must run from the
-**repository root**, not from `server/` — a root-level `railway.json` pins this explicitly
-(`npm run build` to build, `npm run start` to run), so Nixpacks doesn't have to guess.
+**repository root**, not from `server/`.
+
+Both Railway services in this project (server + dashboard) build from that same repo root, so
+each needs to be told its own build/start commands. Don't use Railway's "Config as Code"
+(`railway.json`/`railway.toml` + a Config File Path setting) for this — Railway has deprecated
+it: services that never opted in before can no longer opt in at all (the setting just silently
+fails to save), and even already-configured `railway.json` files stop working entirely after a
+2026-12-01 hard cutoff. Instead, set these as plain **environment variables** on each service
+(Settings → Variables) — Nixpacks reads them directly and they take priority over everything
+else, so there's no file to drift out of sync and no deprecation risk:
+
+| Variable | Server service | Dashboard service |
+| --- | --- | --- |
+| `NIXPACKS_BUILD_CMD` | `npm run build` | `npm run build:web` |
+| `NIXPACKS_START_CMD` | `npm run start` | `npm run start:web` |
+
+Leave the Settings → Build/Deploy custom command text fields blank on both services — the
+`NIXPACKS_*` variables are the single source of truth, so there's nothing left to fall back to
+a wrong default if a deploy trigger ever re-reads that UI field.
 
 1. Create a new Railway project from this GitHub repo. Leave the service's **Root Directory**
    at the repo root (blank/default) — do not point it at `server/`, or the workspace install
    will break.
 2. Add a Postgres plugin/service in the same Railway project; it sets `DATABASE_URL`
    automatically for services in that project.
-3. Set the remaining secrets from the table above as environment variables on the service.
+3. Set `NIXPACKS_BUILD_CMD=npm run build` and `NIXPACKS_START_CMD=npm run start`, plus the
+   remaining secrets from the table above, as environment variables on the service.
 4. After the first successful deploy, run migrations once against the Railway Postgres
    instance — either via `railway run npm run migrate` (Railway CLI) or a one-off shell in the
    Railway dashboard. Re-run it after every deploy that adds new migration files.
@@ -171,24 +189,15 @@ static site and served by the `serve` package — it is not part of the API serv
 Vite bakes `VITE_API_BASE_URL` into the built JS at build time, so it must be set on this
 service (not the server service) before building.
 
-Both services build from the same repo root, but they need **different** build/start commands.
-The server's commands live in the root `railway.json`, which Railway applies by default — if
-the dashboard service is only told its commands via the Settings → Build/Deploy text fields
-(not a committed config file), an auto-deploy can silently fall back to the root `railway.json`
-(the server's commands) instead, breaking the dashboard until you manually redeploy. To avoid
-that, point the dashboard service at its own committed config file, `railway.web.json`, instead
-of typing the commands into the UI:
-
 1. In the same Railway project, add a new service from the same GitHub repo.
 2. Leave this service's **Root Directory** blank (repo root) — same as the server service.
    Building from `web/` in isolation hits a real npm bug with Vite/Rolldown's native
    optional-dependency binaries (npm/cli#4828) because there's no lockfile scoped to `web/`
    alone; building from root uses the same resolved root `package-lock.json` the server
    build already uses successfully.
-3. In this service's **Settings → Config as Code** (or **Source**, depending on Railway's
-   current UI), set the **Config File Path** to `railway.web.json`. Leave the Build/Deploy
-   custom command fields blank — the config file, not the UI fields, should be the source of
-   truth, so it survives every deploy (push-triggered or manual) consistently.
+3. Set `NIXPACKS_BUILD_CMD=npm run build:web` and `NIXPACKS_START_CMD=npm run start:web` as
+   environment variables on this service (Settings → Variables) — see the table above. Leave
+   the Settings → Build/Deploy custom command fields blank.
 4. Set `VITE_API_BASE_URL` on this service to the server service's public URL, e.g.
    `https://<server-service>.up.railway.app` (no trailing slash). Find that URL on the server
    service's Settings → Networking tab. Vite bakes this into the built JS at build time, so
@@ -196,6 +205,6 @@ of typing the commands into the UI:
 5. Deploy. Under Settings → Networking on this new service, generate a public domain — that
    URL is the dashboard.
 
-If your dashboard service was set up before this change (with the commands typed into the
-Build/Deploy fields), switch it to `railway.web.json` via Config File Path and clear the old
-custom command fields — otherwise the two can still drift out of sync.
+If either service still has a custom Build/Start command typed into Settings → Build/Deploy
+from before this change, clear those fields once the `NIXPACKS_*` variables are set — otherwise
+the two can still drift out of sync.
