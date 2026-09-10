@@ -19,6 +19,20 @@ function normalizePhoneNumber(phone: string): string {
   return phone.replace(/\D/g, "").slice(-10);
 }
 
+// Quo's real "message.received" webhook payload doesn't match the array
+// shape the (best-guess, doc-derived) QuoMessage type declares for `to` —
+// in practice it's been observed as something other than a string[].
+// Accept a string, an array, or anything unexpected without throwing.
+function extractToNumbers(to: unknown): string[] {
+  if (Array.isArray(to)) {
+    return to.filter((t): t is string => typeof t === "string");
+  }
+  if (typeof to === "string") {
+    return [to];
+  }
+  return [];
+}
+
 quoWebhookRouter.post(
   "/webhooks/quo",
   asyncHandler(async (req, res) => {
@@ -68,10 +82,16 @@ quoWebhookRouter.post(
 
     if (env.quoFromNumber) {
       const target = normalizePhoneNumber(env.quoFromNumber);
-      const matchesTarget = message.to.some(
+      const toNumbers = extractToNumbers(message.to);
+      const matchesTarget = toNumbers.some(
         (to) => normalizePhoneNumber(to) === target,
       );
       if (!matchesTarget) {
+        console.warn("Quo webhook message.to did not match target number", {
+          to: message.to,
+          toType: typeof message.to,
+          target,
+        });
         res.status(200).json({ ignored: "wrong number", to: message.to });
         return;
       }
