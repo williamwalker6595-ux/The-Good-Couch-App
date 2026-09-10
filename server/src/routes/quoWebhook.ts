@@ -33,6 +33,37 @@ function extractToNumbers(to: unknown): string[] {
   return [];
 }
 
+// `message.media` is reconstructed from Quo's docs the same way `message.to`
+// was, and that guess was wrong in production — so don't trust `{url, type}[]`
+// here either. Accept objects with a `url` string field, bare URL strings, or
+// anything else unexpected without throwing; log whatever doesn't match so
+// the real shape can be seen in the logs if this still comes up empty.
+function extractMediaUrls(media: unknown): string[] {
+  if (media == null) {
+    return [];
+  }
+  if (!Array.isArray(media)) {
+    console.warn("Quo webhook message.media was not an array", {
+      media,
+      mediaType: typeof media,
+    });
+    return [];
+  }
+  const urls: string[] = [];
+  for (const item of media) {
+    if (typeof item === "string") {
+      urls.push(item);
+    } else if (item && typeof item === "object" && typeof (item as Record<string, unknown>).url === "string") {
+      urls.push((item as Record<string, unknown>).url as string);
+    } else {
+      console.warn("Quo webhook message.media item had unexpected shape", {
+        item,
+      });
+    }
+  }
+  return urls;
+}
+
 quoWebhookRouter.post(
   "/webhooks/quo",
   asyncHandler(async (req, res) => {
@@ -105,11 +136,18 @@ quoWebhookRouter.post(
 
     const lead = await findOrCreateLeadByPhone(message.from);
 
+    const mediaUrls = extractMediaUrls(message.media);
+    if (message.media != null && mediaUrls.length === 0) {
+      console.warn("Quo webhook message had media but no URLs were extracted", {
+        rawMedia: message.media,
+      });
+    }
+
     await insertConversationMessage({
       leadId: lead.id,
       direction: "in",
       body: quoMessageText(message),
-      mediaUrls: (message.media ?? []).map((m) => m.url),
+      mediaUrls,
       quoMessageId: message.id,
     });
 
