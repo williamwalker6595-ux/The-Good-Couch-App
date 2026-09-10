@@ -208,3 +208,21 @@ service (not the server service) before building.
 If either service still has a custom Build/Start command typed into Settings → Build/Deploy
 from before this change, clear those fields once the `NIXPACKS_*` variables are set — otherwise
 the two can still drift out of sync.
+
+## Installing the dashboard as an app on your phone
+
+The dashboard is a PWA (Progressive Web App) — no App Store, no developer account, just an
+install from the browser. Once it's deployed:
+
+- **iPhone (Safari)**: open the dashboard URL, tap the **Share** icon, then **Add to Home
+  Screen**. An in-app banner also shows these instructions the first time you open it in
+  Safari.
+- **Android (Chrome)**: open the dashboard URL; either use Chrome's menu → **Install app**, or
+  tap **Install** on the in-app banner that appears automatically.
+
+Once installed, it opens full-screen from your home screen icon like a native app — no browser
+address bar. Icons and manifest are generated from `public/favicon.svg` at build time; regenerate
+them with `node scripts/generate-icons.mjs` (from `web/`) if that source SVG ever changes.
+
+When a new version is deployed, an already-installed app doesn't need reinstalling — it shows a
+small "Refresh" banner in-app once the new version has finished downloading in the background.

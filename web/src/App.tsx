@@ -1,6 +1,8 @@
 import { Link, Route, Routes } from "react-router-dom";
 import LeadDetailPage from "./pages/LeadDetailPage";
 import LeadListPage from "./pages/LeadListPage";
+import InstallPrompt from "./pwa/InstallPrompt";
+import UpdateToast from "./pwa/UpdateToast";
 
 export default function App() {
   return (
@@ -17,6 +19,10 @@ export default function App() {
           <Route path="/leads/:leadId" element={<LeadDetailPage />} />
         </Routes>
       </main>
+      <div className="pwa-banner-stack">
+        <UpdateToast />
+        <InstallPrompt />
+      </div>
     </div>
   );
 }
