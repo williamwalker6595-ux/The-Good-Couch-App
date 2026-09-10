@@ -4,6 +4,7 @@ import helmet from "helmet";
 import { healthRouter } from "./routes/health";
 import { leadIntakeRouter } from "./routes/leadIntake";
 import { leadsRouter } from "./routes/leads";
+import { mediaProxyRouter } from "./routes/mediaProxy";
 import { messagesRouter } from "./routes/messages";
 import { quotesRouter } from "./routes/quotes";
 import { quoWebhookRouter } from "./routes/quoWebhook";
@@ -23,6 +24,7 @@ export function createApp() {
   );
 
   app.use(healthRouter);
+  app.use(mediaProxyRouter);
   app.use(quoWebhookRouter);
   app.use(messagesRouter);
   app.use(leadIntakeRouter);

@@ -234,12 +234,26 @@ select {
   gap: 0.5rem;
 }
 
-.message-media img {
+.photo-thumb {
   display: block;
-  max-width: 160px;
-  max-height: 160px;
-  border-radius: 6px;
+  padding: 0;
   border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: zoom-in;
+  overflow: hidden;
+}
+
+.photo-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.message-media .photo-thumb {
+  width: 160px;
+  height: 160px;
 }
 
 .photo-grid {
@@ -248,13 +262,9 @@ select {
   gap: 0.75rem;
 }
 
-.photo-grid img {
-  display: block;
+.photo-grid .photo-thumb {
   width: 100%;
   aspect-ratio: 1;
-  object-fit: cover;
-  border-radius: 6px;
-  border: 1px solid var(--border);
 }
 
 .photo-fallback {
@@ -263,12 +273,43 @@ select {
   justify-content: center;
   aspect-ratio: 1;
   border-radius: 6px;
-  border: 1px solid var(--border);
-  color: var(--accent);
-  text-decoration: none;
+  border: 1px dashed var(--border);
+  color: var(--muted);
   font-size: 0.85rem;
   text-align: center;
   padding: 0.5rem;
+}
+
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  z-index: 1000;
+  cursor: zoom-out;
+}
+
+.lightbox-image {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+  cursor: default;
+}
+
+.lightbox-close {
+  position: fixed;
+  top: 1rem;
+  right: 1.5rem;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 2.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
 }
 
 button {

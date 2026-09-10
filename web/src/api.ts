@@ -110,6 +110,10 @@ export interface ScheduleSlot {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
+export function mediaProxyUrl(url: string): string {
+  return `${API_BASE_URL}/media/proxy?url=${encodeURIComponent(url)}`;
+}
+
 async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`);
   if (!response.ok) {

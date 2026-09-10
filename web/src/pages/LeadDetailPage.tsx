@@ -13,6 +13,7 @@ import {
   fetchLeadQuoteOptions,
   fetchLeadQuoteResponse,
   fetchLeadSchedule,
+  mediaProxyUrl,
   quickApproveDisposition,
   QUOTE_CUSTOMER_RESPONSES,
   recordLeadQuoteResponse,
@@ -30,21 +31,67 @@ import {
 } from "../api";
 import { formatDateTime, formatStatusLabel } from "../format";
 
-function PhotoThumbnail({ url }: { url: string }) {
+function PhotoThumbnail({
+  url,
+  onOpen,
+}: {
+  url: string;
+  onOpen: (url: string) => void;
+}) {
   const [failed, setFailed] = useState(false);
 
   if (failed) {
-    return (
-      <a href={url} target="_blank" rel="noreferrer" className="photo-fallback">
-        View attachment
-      </a>
-    );
+    return <div className="photo-fallback">Photo unavailable</div>;
   }
 
   return (
-    <a href={url} target="_blank" rel="noreferrer">
-      <img src={url} alt="Couch photo" onError={() => setFailed(true)} />
-    </a>
+    <button
+      type="button"
+      className="photo-thumb"
+      onClick={() => onOpen(url)}
+      aria-label="Expand photo"
+    >
+      <img
+        src={mediaProxyUrl(url)}
+        alt="Couch photo"
+        onError={() => setFailed(true)}
+      />
+    </button>
+  );
+}
+
+function PhotoLightbox({
+  url,
+  onClose,
+}: {
+  url: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="lightbox-overlay" onClick={onClose}>
+      <img
+        src={mediaProxyUrl(url)}
+        alt="Couch photo, expanded"
+        className="lightbox-image"
+        onClick={(e) => e.stopPropagation()}
+      />
+      <button
+        type="button"
+        className="lightbox-close"
+        onClick={onClose}
+        aria-label="Close"
+      >
+        ×
+      </button>
+    </div>
   );
 }
 
@@ -83,6 +130,8 @@ export default function LeadDetailPage() {
     string | null
   >(null);
   const [pickupDatetimeInput, setPickupDatetimeInput] = useState("");
+
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   function reload(id: string) {
     let cancelled = false;
@@ -274,7 +323,7 @@ export default function LeadDetailPage() {
           {photoUrls.length > 0 ? (
             <div className="photo-grid">
               {photoUrls.map((url) => (
-                <PhotoThumbnail key={url} url={url} />
+                <PhotoThumbnail key={url} url={url} onOpen={setLightboxUrl} />
               ))}
             </div>
           ) : (
@@ -576,7 +625,7 @@ export default function LeadDetailPage() {
                 {message.media_urls.length > 0 && (
                   <div className="message-media">
                     {message.media_urls.map((url) => (
-                      <PhotoThumbnail key={url} url={url} />
+                      <PhotoThumbnail key={url} url={url} onOpen={setLightboxUrl} />
                     ))}
                   </div>
                 )}
@@ -585,6 +634,10 @@ export default function LeadDetailPage() {
           </ul>
         )}
       </section>
+
+      {lightboxUrl && (
+        <PhotoLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+      )}
     </div>
   );
 }
