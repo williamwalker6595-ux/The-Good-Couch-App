@@ -3,18 +3,25 @@ import { Link, useParams } from "react-router-dom";
 import StatusBadge from "../components/StatusBadge";
 import {
   approveLeadDisposition,
+  composeQuoteMessagePreview,
   DISPOSITION_TYPES,
   fetchLead,
   fetchLeadConditionAssessment,
   fetchLeadDisposition,
   fetchLeadMessages,
+  fetchLeadQuoteResponse,
+  QUOTE_CUSTOMER_RESPONSES,
+  recordLeadQuoteResponse,
   rejectLeadDisposition,
+  sendLeadQuote,
   suggestLeadDisposition,
   type ConditionAssessment,
   type ConversationMessage,
   type Disposition,
   type DispositionType,
   type Lead,
+  type QuoteCustomerResponse,
+  type QuoteResponse,
 } from "../api";
 import { formatDateTime, formatStatusLabel } from "../format";
 
@@ -40,6 +47,18 @@ export default function LeadDetailPage() {
   const [draftType, setDraftType] = useState<DispositionType>("free");
   const [draftQuoteAmount, setDraftQuoteAmount] = useState<string>("");
 
+  const [quoteResponse, setQuoteResponse] = useState<QuoteResponse | null>(
+    null,
+  );
+  const [quoteContent, setQuoteContent] = useState("");
+  const [quoteActionLoading, setQuoteActionLoading] = useState(false);
+  const [quoteActionError, setQuoteActionError] = useState<string | null>(
+    null,
+  );
+  const [manualResponse, setManualResponse] =
+    useState<QuoteCustomerResponse>("accepted");
+  const [manualFinalAmount, setManualFinalAmount] = useState<string>("");
+
   function reload(id: string) {
     let cancelled = false;
     setLoading(true);
@@ -50,16 +69,29 @@ export default function LeadDetailPage() {
       fetchLeadMessages(id),
       fetchLeadConditionAssessment(id),
       fetchLeadDisposition(id),
+      fetchLeadQuoteResponse(id),
     ])
-      .then(([leadData, messagesData, assessmentData, dispositionData]) => {
-        if (cancelled) return;
-        setLead(leadData);
-        setMessages(messagesData);
-        setConditionAssessment(assessmentData);
-        setDisposition(dispositionData);
-        setDraftType(dispositionData?.type ?? "free");
-        setDraftQuoteAmount(dispositionData?.quote_amount ?? "");
-      })
+      .then(
+        ([
+          leadData,
+          messagesData,
+          assessmentData,
+          dispositionData,
+          quoteResponseData,
+        ]) => {
+          if (cancelled) return;
+          setLead(leadData);
+          setMessages(messagesData);
+          setConditionAssessment(assessmentData);
+          setDisposition(dispositionData);
+          setDraftType(dispositionData?.type ?? "free");
+          setDraftQuoteAmount(dispositionData?.quote_amount ?? "");
+          setQuoteResponse(quoteResponseData);
+          setQuoteContent(
+            dispositionData ? composeQuoteMessagePreview(dispositionData) : "",
+          );
+        },
+      )
       .catch(() => {
         if (!cancelled) setError("Failed to load lead.");
       })
@@ -125,6 +157,40 @@ export default function LeadDetailPage() {
       setDispositionActionError("Failed to reject disposition.");
     } finally {
       setDispositionActionLoading(false);
+    }
+  }
+
+  async function handleSendQuote() {
+    if (!leadId || quoteContent.trim() === "") return;
+    setQuoteActionLoading(true);
+    setQuoteActionError(null);
+    try {
+      await sendLeadQuote(leadId, quoteContent.trim());
+      reload(leadId);
+    } catch {
+      setQuoteActionError("Failed to send quote.");
+    } finally {
+      setQuoteActionLoading(false);
+    }
+  }
+
+  async function handleRecordResponse() {
+    if (!leadId) return;
+    setQuoteActionLoading(true);
+    setQuoteActionError(null);
+    try {
+      await recordLeadQuoteResponse(leadId, {
+        customerResponse: manualResponse,
+        finalAmount:
+          manualResponse === "declined" || manualFinalAmount === ""
+            ? null
+            : Number(manualFinalAmount),
+      });
+      reload(leadId);
+    } catch {
+      setQuoteActionError("Failed to record customer response.");
+    } finally {
+      setQuoteActionLoading(false);
     }
   }
 
@@ -273,6 +339,105 @@ export default function LeadDetailPage() {
           {dispositionActionError && (
             <p className="error">{dispositionActionError}</p>
           )}
+        </div>
+      </section>
+
+      <section>
+        <h2>Quote</h2>
+        <div className="card">
+          {disposition?.status === "approved" ? (
+            <>
+              <label htmlFor="quote-content" className="muted">
+                Message to send
+              </label>
+              <textarea
+                id="quote-content"
+                rows={4}
+                style={{ width: "100%", marginTop: "0.35rem" }}
+                value={quoteContent}
+                onChange={(e) => setQuoteContent(e.target.value)}
+                disabled={quoteActionLoading}
+              />
+              <div className="button-row">
+                <button
+                  className="button-primary"
+                  onClick={handleSendQuote}
+                  disabled={quoteActionLoading || quoteContent.trim() === ""}
+                >
+                  {lead.status === "quote_sent" ? "Re-send quote" : "Send quote"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="muted">
+              Approve a disposition above before sending a quote.
+            </p>
+          )}
+
+          {quoteResponse && (
+            <dl className="lead-facts" style={{ marginTop: "1rem" }}>
+              <dt>Customer response</dt>
+              <dd>{formatStatusLabel(quoteResponse.customer_response)}</dd>
+              <dt>Final amount</dt>
+              <dd>{quoteResponse.final_amount ?? "—"}</dd>
+              <dt>Responded</dt>
+              <dd>{formatDateTime(quoteResponse.responded_at)}</dd>
+            </dl>
+          )}
+
+          {lead.status === "quote_sent" && (
+            <>
+              <p className="muted" style={{ marginTop: "1rem" }}>
+                Record the customer's response manually if it wasn't picked up
+                automatically:
+              </p>
+              <div className="disposition-form">
+                <label htmlFor="manual-response">Response</label>
+                <select
+                  id="manual-response"
+                  value={manualResponse}
+                  onChange={(e) =>
+                    setManualResponse(
+                      e.target.value as QuoteCustomerResponse,
+                    )
+                  }
+                  disabled={quoteActionLoading}
+                >
+                  {QUOTE_CUSTOMER_RESPONSES.map((r) => (
+                    <option key={r} value={r}>
+                      {formatStatusLabel(r)}
+                    </option>
+                  ))}
+                </select>
+                {manualResponse !== "declined" && (
+                  <>
+                    <label htmlFor="manual-final-amount">
+                      Final amount ($)
+                    </label>
+                    <input
+                      id="manual-final-amount"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={manualFinalAmount}
+                      onChange={(e) => setManualFinalAmount(e.target.value)}
+                      disabled={quoteActionLoading}
+                    />
+                  </>
+                )}
+              </div>
+              <div className="button-row">
+                <button
+                  onClick={handleRecordResponse}
+                  disabled={quoteActionLoading}
+                >
+                  Record response
+                </button>
+              </div>
+            </>
+          )}
+
+          {quoteActionError && <p className="error">{quoteActionError}</p>}
         </div>
       </section>
 

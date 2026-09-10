@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { runConditionExtractionForLead } from "../ai/conditionExtraction";
 import { runDispositionSuggestionForLead } from "../ai/dispositionSuggestion";
+import { runQuoteResponseClassificationForLead } from "../ai/quoteResponseClassification";
 import { env } from "../config/env";
 import {
   findConversationMessageByQuoId,
   insertConversationMessage,
 } from "../db/repositories/conversationMessages";
+import { getLatestDispositionByLead } from "../db/repositories/dispositions";
 import { findOrCreateLeadByPhone } from "../db/repositories/leads";
 import { verifyQuoWebhookSignature } from "../integrations/quo/signature";
 import { QuoWebhookEvent, quoMessageText } from "../integrations/quo/types";
@@ -79,14 +81,33 @@ quoWebhookRouter.post(
     res.status(200).json({ ok: true });
 
     if (env.anthropicApiKey) {
-      runConditionExtractionForLead(lead.id)
-        .catch((err) => {
-          console.error("Condition extraction failed for lead", lead.id, err);
-        })
-        .then(() => runDispositionSuggestionForLead(lead.id))
-        .catch((err) => {
-          console.error("Disposition suggestion failed for lead", lead.id, err);
-        });
+      if (lead.status === "quote_sent") {
+        getLatestDispositionByLead(lead.id)
+          .then((disposition) => {
+            if (!disposition || disposition.status !== "approved") return;
+            return runQuoteResponseClassificationForLead(lead.id, disposition);
+          })
+          .catch((err) => {
+            console.error(
+              "Quote response classification failed for lead",
+              lead.id,
+              err,
+            );
+          });
+      } else {
+        runConditionExtractionForLead(lead.id)
+          .catch((err) => {
+            console.error("Condition extraction failed for lead", lead.id, err);
+          })
+          .then(() => runDispositionSuggestionForLead(lead.id))
+          .catch((err) => {
+            console.error(
+              "Disposition suggestion failed for lead",
+              lead.id,
+              err,
+            );
+          });
+      }
     }
   }),
 );

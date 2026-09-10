@@ -5,6 +5,7 @@ import { healthRouter } from "./routes/health";
 import { leadIntakeRouter } from "./routes/leadIntake";
 import { leadsRouter } from "./routes/leads";
 import { messagesRouter } from "./routes/messages";
+import { quotesRouter } from "./routes/quotes";
 import { quoWebhookRouter } from "./routes/quoWebhook";
 
 export function createApp() {
@@ -25,6 +26,7 @@ export function createApp() {
   app.use(messagesRouter);
   app.use(leadIntakeRouter);
   app.use(leadsRouter);
+  app.use(quotesRouter);
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     console.error(err);

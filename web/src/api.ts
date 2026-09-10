@@ -69,6 +69,23 @@ export interface Disposition {
   created_at: string;
 }
 
+export type QuoteCustomerResponse = "accepted" | "declined" | "countered";
+
+export const QUOTE_CUSTOMER_RESPONSES: QuoteCustomerResponse[] = [
+  "accepted",
+  "declined",
+  "countered",
+];
+
+export interface QuoteResponse {
+  id: string;
+  lead_id: string;
+  customer_response: QuoteCustomerResponse;
+  discount_applied: string | null;
+  final_amount: string | null;
+  responded_at: string;
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 async function apiGet<T>(path: string): Promise<T> {
@@ -147,4 +164,41 @@ export function rejectLeadDisposition(
   return apiPost<Disposition>(
     `/leads/${leadId}/disposition/${dispositionId}/reject`,
   );
+}
+
+export function composeQuoteMessagePreview(disposition: Disposition): string {
+  if (disposition.type === "free") {
+    return "Good news — your couch qualifies for a free pickup! Let us know if that works for you and we'll get you scheduled.";
+  }
+  const amount = disposition.quote_amount
+    ? `$${Number(disposition.quote_amount).toFixed(0)}`
+    : "a pickup fee";
+  return `Thank you! We can offer to pick up the couch for ${amount}. We accept credit card, Venmo, or cash. Let us know if that works for you and we'll get you scheduled.`;
+}
+
+export function sendLeadQuote(
+  leadId: string,
+  content?: string,
+): Promise<{ message: ConversationMessage; lead: Lead }> {
+  return apiPost<{ message: ConversationMessage; lead: Lead }>(
+    `/leads/${leadId}/quote/send`,
+    content ? { content } : undefined,
+  );
+}
+
+export function fetchLeadQuoteResponse(
+  leadId: string,
+): Promise<QuoteResponse | null> {
+  return apiGet<QuoteResponse | null>(`/leads/${leadId}/quote-response`);
+}
+
+export function recordLeadQuoteResponse(
+  leadId: string,
+  input: {
+    customerResponse: QuoteCustomerResponse;
+    finalAmount?: number | null;
+    discountApplied?: number | null;
+  },
+): Promise<QuoteResponse> {
+  return apiPost<QuoteResponse>(`/leads/${leadId}/quote-response`, input);
 }
