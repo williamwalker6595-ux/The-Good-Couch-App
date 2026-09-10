@@ -44,7 +44,7 @@ const conditionExtractionSchema = z.object({
     .string()
     .nullable()
     .describe(
-      "The customer's full pickup address (street, city, state), only if they've stated one clearly enough to geocode. Null if not mentioned or incomplete.",
+      "The customer's pickup location, in their own words, as specific as they've given it — a full street address if they gave one, but also a zip code, neighborhood name, city/town name, or cross streets on their own are fine and should still be captured (Google Maps can estimate driving distance from any of those). Include city/state context if the customer gave it alongside a partial location, e.g. 'Aurora, CO' or '80016' or 'Colfax & Wadsworth, Lakewood CO'. Null only if they haven't given any location information at all.",
     ),
   seat_count: z
     .number()
@@ -67,9 +67,12 @@ use null for that field — never guess or infer beyond what's explicitly said. 
 fields short and factual (a phrase, not a paragraph).
 
 pickup_address and seat_count feed a pickup-fee calculator, so precision matters more than
-completeness there: only fill them in when the customer's own words support an exact value.
-A partial address ("west side of town") or a vague item description ("pretty big sectional")
-should stay null rather than being guessed at.`;
+completeness there: only fill them in when the customer's own words support the value.
+For pickup_address, a zip code, neighborhood, city/town name, or cross streets is enough —
+capture whatever location detail the customer gave, even if it's not a full street address,
+since driving distance can be estimated from any of those. Only leave it null if the customer
+hasn't given any location information at all. A vague item description ("pretty big sectional")
+should still stay null for seat_count rather than being guessed at.`;
 
 export function formatTranscript(messages: ConversationMessage[]): string {
   return messages
