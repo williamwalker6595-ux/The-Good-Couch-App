@@ -30,8 +30,22 @@ import {
 } from "../api";
 import { formatDateTime, formatStatusLabel } from "../format";
 
-function isImageUrl(url: string): boolean {
-  return /\.(png|jpe?g|gif|webp)$/i.test(url);
+function PhotoThumbnail({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="photo-fallback">
+        View attachment
+      </a>
+    );
+  }
+
+  return (
+    <a href={url} target="_blank" rel="noreferrer">
+      <img src={url} alt="Couch photo" onError={() => setFailed(true)} />
+    </a>
+  );
 }
 
 export default function LeadDetailPage() {
@@ -222,6 +236,14 @@ export default function LeadDetailPage() {
   if (error) return <p className="error">{error}</p>;
   if (!lead) return <p className="error">Lead not found.</p>;
 
+  const photoUrls = Array.from(
+    new Set(
+      messages
+        .filter((message) => message.direction === "in")
+        .flatMap((message) => message.media_urls),
+    ),
+  );
+
   return (
     <div>
       <Link to="/" className="back-link">
@@ -245,6 +267,21 @@ export default function LeadDetailPage() {
           <dd>{formatDateTime(lead.created_at)}</dd>
         </dl>
       </div>
+
+      <section>
+        <h2>Photos</h2>
+        <div className="card">
+          {photoUrls.length > 0 ? (
+            <div className="photo-grid">
+              {photoUrls.map((url) => (
+                <PhotoThumbnail key={url} url={url} />
+              ))}
+            </div>
+          ) : (
+            <p className="muted">No photos yet.</p>
+          )}
+        </div>
+      </section>
 
       <section>
         <h2>Condition assessment</h2>
@@ -538,15 +575,9 @@ export default function LeadDetailPage() {
                 {message.body && <p>{message.body}</p>}
                 {message.media_urls.length > 0 && (
                   <div className="message-media">
-                    {message.media_urls.map((url) =>
-                      isImageUrl(url) ? (
-                        <img key={url} src={url} alt="Attachment" />
-                      ) : (
-                        <a key={url} href={url} target="_blank" rel="noreferrer">
-                          Attachment
-                        </a>
-                      ),
-                    )}
+                    {message.media_urls.map((url) => (
+                      <PhotoThumbnail key={url} url={url} />
+                    ))}
                   </div>
                 )}
               </li>
