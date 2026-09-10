@@ -29,6 +29,19 @@ function isIos(): boolean {
   return /iPhone|iPad|iPod/.test(navigator.userAgent);
 }
 
+interface NavigatorWithUAData extends Navigator {
+  userAgentData?: { mobile?: boolean };
+}
+
+// beforeinstallprompt also fires on desktop Chrome/Edge (for installing as a
+// desktop app) — this dashboard only wants the banner on phones, so desktop
+// should fall through to whatever the browser does on its own instead.
+function isMobileDevice(): boolean {
+  const uaData = (navigator as NavigatorWithUAData).userAgentData;
+  if (uaData?.mobile !== undefined) return uaData.mobile;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
 export default function InstallPrompt() {
   const standalone = useStandaloneDisplay();
   const [dismissed, setDismissed] = useState(wasDismissed);
@@ -36,6 +49,7 @@ export default function InstallPrompt() {
     useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
+    if (!isMobileDevice()) return;
     const onBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
       setDeferredPrompt(event as BeforeInstallPromptEvent);
