@@ -15,6 +15,10 @@ import { asyncHandler } from "../middleware/asyncHandler";
 
 export const quoWebhookRouter = Router();
 
+function normalizePhoneNumber(phone: string): string {
+  return phone.replace(/\D/g, "").slice(-10);
+}
+
 quoWebhookRouter.post(
   "/webhooks/quo",
   asyncHandler(async (req, res) => {
@@ -61,6 +65,17 @@ quoWebhookRouter.post(
     }
 
     const message = event.data.object;
+
+    if (env.quoFromNumber) {
+      const target = normalizePhoneNumber(env.quoFromNumber);
+      const matchesTarget = message.to.some(
+        (to) => normalizePhoneNumber(to) === target,
+      );
+      if (!matchesTarget) {
+        res.status(200).json({ ignored: "wrong number", to: message.to });
+        return;
+      }
+    }
 
     const existing = await findConversationMessageByQuoId(message.id);
     if (existing) {
