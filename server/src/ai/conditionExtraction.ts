@@ -7,6 +7,7 @@ import {
 } from "../db/repositories/conversationMessages";
 import {
   ConditionAssessment,
+  getLatestConditionAssessmentByLead,
   insertConditionAssessment,
 } from "../db/repositories/conditionAssessments";
 import { getLeadById, updateLeadAddress } from "../db/repositories/leads";
@@ -133,19 +134,29 @@ export async function runConditionExtractionForLead(
   // customer's own words, when confident — "how many people could sit
   // side by side" is much more reliably judged from a photo than from
   // however the customer happened to describe it in text.
+  const previousAssessment = await getLatestConditionAssessmentByLead(leadId);
   let seatCount = extracted.seat_count;
   if (photoRefs.length > 0) {
-    try {
-      const visionResult = await estimateSeatCountFromPhotos(photoRefs);
-      if (
-        visionResult?.seat_count !== null &&
-        visionResult !== null &&
-        visionResult.confidence >= MIN_VISION_SEAT_COUNT_CONFIDENCE
-      ) {
-        seatCount = visionResult.seat_count;
+    const hasNewPhotos = photoRefs.some(
+      (url) => !previousAssessment?.photo_refs.includes(url),
+    );
+    if (!hasNewPhotos && previousAssessment?.seat_count != null) {
+      // Same photos we already ran vision on — reuse that result instead
+      // of paying for the same analysis again.
+      seatCount = previousAssessment.seat_count;
+    } else {
+      try {
+        const visionResult = await estimateSeatCountFromPhotos(photoRefs);
+        if (
+          visionResult?.seat_count !== null &&
+          visionResult !== null &&
+          visionResult.confidence >= MIN_VISION_SEAT_COUNT_CONFIDENCE
+        ) {
+          seatCount = visionResult.seat_count;
+        }
+      } catch (err) {
+        console.error("Seat count vision failed for lead", leadId, err);
       }
-    } catch (err) {
-      console.error("Seat count vision failed for lead", leadId, err);
     }
   }
 

@@ -111,7 +111,19 @@ export async function suggestDisposition(
   const response = await anthropic.messages.parse({
     model: "claude-opus-5",
     max_tokens: 1024,
-    system: buildSystemPrompt(),
+    // The system prompt (including the ~45KB playbook) is identical on
+    // every call for every lead — cache it so only occasional calls pay
+    // full price for it. A 1h TTL (vs. the 5m default) trades a slightly
+    // pricier cache write for a much higher hit rate given how sporadic
+    // inbound texts are, and this same cached prefix is shared across
+    // every lead's calls, not just repeat calls on the same one.
+    system: [
+      {
+        type: "text",
+        text: buildSystemPrompt(),
+        cache_control: { type: "ephemeral", ttl: "1h" },
+      },
+    ],
     messages: [{ role: "user", content: userContent }],
     output_config: {
       format: zodOutputFormat(dispositionSuggestionSchema),
@@ -121,6 +133,12 @@ export async function suggestDisposition(
   if (!response.parsed_output) {
     throw new Error("Claude did not return parseable disposition data");
   }
+
+  console.log("Disposition suggestion cache usage", {
+    cacheRead: response.usage.cache_read_input_tokens,
+    cacheWrite: response.usage.cache_creation_input_tokens,
+    uncached: response.usage.input_tokens,
+  });
 
   return response.parsed_output;
 }
