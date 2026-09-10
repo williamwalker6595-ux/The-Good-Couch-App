@@ -171,17 +171,31 @@ static site and served by the `serve` package — it is not part of the API serv
 Vite bakes `VITE_API_BASE_URL` into the built JS at build time, so it must be set on this
 service (not the server service) before building.
 
+Both services build from the same repo root, but they need **different** build/start commands.
+The server's commands live in the root `railway.json`, which Railway applies by default — if
+the dashboard service is only told its commands via the Settings → Build/Deploy text fields
+(not a committed config file), an auto-deploy can silently fall back to the root `railway.json`
+(the server's commands) instead, breaking the dashboard until you manually redeploy. To avoid
+that, point the dashboard service at its own committed config file, `railway.web.json`, instead
+of typing the commands into the UI:
+
 1. In the same Railway project, add a new service from the same GitHub repo.
 2. Leave this service's **Root Directory** blank (repo root) — same as the server service.
    Building from `web/` in isolation hits a real npm bug with Vite/Rolldown's native
    optional-dependency binaries (npm/cli#4828) because there's no lockfile scoped to `web/`
    alone; building from root uses the same resolved root `package-lock.json` the server
    build already uses successfully.
-3. In **Settings → Build**, set a custom build command: `npm run build:web`.
-4. In **Settings → Deploy**, set a custom start command: `npm run start:web`.
-5. Set `VITE_API_BASE_URL` on this service to the server service's public URL, e.g.
+3. In this service's **Settings → Config as Code** (or **Source**, depending on Railway's
+   current UI), set the **Config File Path** to `railway.web.json`. Leave the Build/Deploy
+   custom command fields blank — the config file, not the UI fields, should be the source of
+   truth, so it survives every deploy (push-triggered or manual) consistently.
+4. Set `VITE_API_BASE_URL` on this service to the server service's public URL, e.g.
    `https://<server-service>.up.railway.app` (no trailing slash). Find that URL on the server
    service's Settings → Networking tab. Vite bakes this into the built JS at build time, so
    it must be set before deploying.
-6. Deploy. Under Settings → Networking on this new service, generate a public domain — that
+5. Deploy. Under Settings → Networking on this new service, generate a public domain — that
    URL is the dashboard.
+
+If your dashboard service was set up before this change (with the commands typed into the
+Build/Deploy fields), switch it to `railway.web.json` via Config File Path and clear the old
+custom command fields — otherwise the two can still drift out of sync.
