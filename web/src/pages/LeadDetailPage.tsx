@@ -6,6 +6,7 @@ import {
   confirmLeadSchedule,
   createLeadScheduleTask,
   DISPOSITION_TYPES,
+  extractLeadConditionAssessment,
   fetchLead,
   fetchLeadConditionAssessment,
   fetchLeadDisposition,
@@ -112,6 +113,11 @@ export default function LeadDetailPage() {
   >(null);
   const [quoteOptions, setQuoteOptions] = useState<QuoteOptions | null>(null);
 
+  const [conditionActionLoading, setConditionActionLoading] = useState(false);
+  const [conditionActionError, setConditionActionError] = useState<
+    string | null
+  >(null);
+
   const [quoteResponse, setQuoteResponse] = useState<QuoteResponse | null>(
     null,
   );
@@ -195,6 +201,20 @@ export default function LeadDetailPage() {
     return reload(leadId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadId]);
+
+  async function handleExtractCondition() {
+    if (!leadId) return;
+    setConditionActionLoading(true);
+    setConditionActionError(null);
+    try {
+      await extractLeadConditionAssessment(leadId);
+      reload(leadId);
+    } catch {
+      setConditionActionError("Failed to re-analyze photos/conversation.");
+    } finally {
+      setConditionActionLoading(false);
+    }
+  }
 
   async function handleSuggest() {
     if (!leadId) return;
@@ -383,6 +403,21 @@ export default function LeadDetailPage() {
             </dl>
           ) : (
             <p className="muted">No condition assessment yet.</p>
+          )}
+          <div className="button-row">
+            <button
+              onClick={handleExtractCondition}
+              disabled={conditionActionLoading}
+            >
+              {conditionActionLoading
+                ? "Analyzing…"
+                : conditionAssessment
+                  ? "Re-analyze photos & conversation"
+                  : "Analyze photos & conversation"}
+            </button>
+          </div>
+          {conditionActionError && (
+            <p className="error">{conditionActionError}</p>
           )}
         </div>
       </section>

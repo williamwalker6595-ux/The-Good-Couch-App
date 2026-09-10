@@ -164,6 +164,14 @@ export function fetchLeadConditionAssessment(
   );
 }
 
+export function extractLeadConditionAssessment(
+  leadId: string,
+): Promise<ConditionAssessment> {
+  return apiPost<ConditionAssessment>(
+    `/leads/${leadId}/condition-assessment/extract`,
+  );
+}
+
 export function fetchLeadDisposition(
   leadId: string,
 ): Promise<Disposition | null> {
