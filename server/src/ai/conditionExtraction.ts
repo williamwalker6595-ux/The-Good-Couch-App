@@ -51,7 +51,7 @@ const conditionExtractionSchema = z.object({
     .int()
     .nullable()
     .describe(
-      "Total number of seats or ~30-inch sections on the item (e.g. a 3-seat couch is 3; a sectional with a chaise plus two armrest pieces is however many such sections were described). Null if not enough detail was given to count.",
+      "Total number of ~30-inch-wide seat sections on the item (e.g. a 3-seat couch is 3; a sectional with a chaise plus two armrest pieces is however many such sections were described). If the customer describes unusually wide cushions/seats, count the extra width as additional sections. Null if not enough detail was given to count.",
     ),
 });
 

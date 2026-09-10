@@ -17,7 +17,7 @@ const seatCountSchema = z.object({
     .int()
     .nullable()
     .describe(
-      "Total number of people who could comfortably sit side by side on this couch/sectional, counted ONCE across all photos (not per photo) since multiple photos often show the same item from different angles. Null if the photos don't show enough of the item to judge, or don't clearly show a couch at all.",
+      "Number of ~30-inch-wide seat sections on this couch/sectional, counted ONCE across all photos (not per photo) since multiple photos often show the same item from different angles. Count each cushion as one section by default; count an unusually wide cushion as two (or more) sections instead of one. Null if the photos don't show enough of the item to judge, or don't clearly show a couch at all.",
     ),
   confidence: z.number().min(0).max(1),
   reasoning: z
@@ -51,18 +51,26 @@ async function fetchImageAsBase64(
 }
 
 const SYSTEM_PROMPT = `You look at photos of a couch/sectional a customer sent to a couch-pickup
-resale business and count how many people could comfortably sit side by side — the number of
-"seats", not the number of decorative cushions or pillows (a 3-seat couch often has more than
-3 cushions on it; count seat width, not cushion count).
+resale business and count how many ~30-inch-wide seat sections it has — not decorative
+cushions/pillows on top of the seat, and not simply the number of seat cushions either.
+
+Default rule: count each seat cushion as one section. But cushion width varies — some couches
+have noticeably wider cushions than a standard single seat, wide enough that two people could
+comfortably sit side by side on what looks like "one" cushion (e.g. a couch with 2 large
+cushions can easily be 3 sections' worth of width). When a cushion looks unusually wide relative
+to a normal single seat, count it as two (or more) sections instead of one — judge by width, not
+by how the cushions happen to be divided.
 
 You may be given multiple photos. They often show the SAME item from different angles
-(front, side, a close-up of a stain, etc.) — count the seats on the item ONCE total, not once
+(front, side, a close-up of a stain, etc.) — count the sections on the item ONCE total, not once
 per photo. If the photos clearly show more than one distinct piece of furniture, use your best
 judgment about which one is the item being sold (usually the main couch/sectional, not a
 side chair glimpsed in the background).
 
-If the photos are too unclear, too zoomed-in, or don't show the whole item to count
-confidently, return null rather than guessing, and say why in your reasoning.`;
+If you're on the edge between two counts, or genuinely unsure, round UP rather than down —
+it's better to overestimate a section count than underestimate one. Only return null if the
+photos are too unclear, too zoomed-in, or don't show the whole item to count at all, and say
+why in your reasoning.`;
 
 export async function estimateSeatCountFromPhotos(
   photoUrls: string[],
