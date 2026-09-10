@@ -282,6 +282,8 @@ export default function LeadDetailPage() {
               <dd>{conditionAssessment.odors ?? "—"}</dd>
               <dt>Stains</dt>
               <dd>{conditionAssessment.stains ?? "—"}</dd>
+              <dt>Seats/sections</dt>
+              <dd>{conditionAssessment.seat_count ?? "—"}</dd>
               <dt>Notes</dt>
               <dd>{conditionAssessment.notes ?? "—"}</dd>
             </dl>

@@ -20,4 +20,5 @@ export const env = {
   quoFromNumber: process.env.QUO_FROM_NUMBER ?? "",
   quoWebhookSigningKey: process.env.QUO_WEBHOOK_SIGNING_KEY ?? "",
   todoistApiToken: process.env.TODOIST_API_TOKEN ?? "",
+  googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY ?? "",
 };

@@ -48,6 +48,7 @@ export interface ConditionAssessment {
   odors: string | null;
   stains: string | null;
   notes: string | null;
+  seat_count: number | null;
   photo_refs: string[];
   created_at: string;
 }

@@ -16,7 +16,11 @@ import {
   DispositionType,
   insertDisposition,
 } from "../db/repositories/dispositions";
-import { updateLeadStatus } from "../db/repositories/leads";
+import { getLeadById, updateLeadStatus } from "../db/repositories/leads";
+import {
+  calculateQuoteAmount,
+  MissingQuoteInputError,
+} from "../quotes/calculateQuote";
 import { formatTranscript } from "./conditionExtraction";
 
 const PLAYBOOK_PATH = path.join(__dirname, "playbook.md");
@@ -45,7 +49,7 @@ const dispositionSuggestionSchema = z.object({
     .number()
     .nullable()
     .describe(
-      "Suggested fee in whole dollars, or null when type is 'free'. Leave null if there isn't enough information in the conversation to name a specific number (e.g. distance was never mentioned) — do not guess a figure.",
+      "Fallback fee estimate in whole dollars, or null when type is 'free'. The real amount for 'mileage'/'full' is computed separately from driving distance and seat count when that data is available — this field is only used when that calculation can't run (e.g. no address on file yet). Leave null rather than guessing if you can't name a defensible number.",
     ),
   confidence: z
     .number()
@@ -139,13 +143,43 @@ export async function runDispositionSuggestionForLead(
 
   const suggestion = await suggestDisposition(messages, conditionAssessment);
 
+  let quoteAmount = suggestion.quote_amount;
+  let reasoning = suggestion.reasoning;
+  let confidence = suggestion.confidence;
+
+  if (suggestion.type === "mileage" || suggestion.type === "full") {
+    const lead = await getLeadById(leadId);
+    if (!lead?.address) {
+      reasoning = `${reasoning} (No pickup address on file yet, so this is a rough AI estimate — recalculate once the address is known.)`;
+      confidence = Math.min(confidence, 0.4);
+    } else {
+      try {
+        const calculation = await calculateQuoteAmount({
+          type: suggestion.type,
+          address: lead.address,
+          seatCount: conditionAssessment?.seat_count ?? null,
+        });
+        quoteAmount = calculation.amount;
+        reasoning = `${reasoning} Calculated quote: ${calculation.explanation}`;
+      } catch (err) {
+        const detail =
+          err instanceof MissingQuoteInputError
+            ? "missing seat/section count"
+            : "distance lookup failed";
+        console.error("Quote calculation failed for lead", leadId, err);
+        reasoning = `${reasoning} (Could not calculate an exact quote — ${detail}; this is a rough AI estimate, please verify.)`;
+        confidence = Math.min(confidence, 0.4);
+      }
+    }
+  }
+
   const disposition = await insertDisposition({
     leadId,
     type: suggestion.type as DispositionType,
     suggestedBy: "agent",
-    confidence: suggestion.confidence,
-    quoteAmount: suggestion.quote_amount,
-    reasoning: suggestion.reasoning,
+    confidence,
+    quoteAmount,
+    reasoning,
   });
 
   await updateLeadStatus(leadId, "awaiting_disposition");

@@ -9,6 +9,7 @@ import {
   ConditionAssessment,
   insertConditionAssessment,
 } from "../db/repositories/conditionAssessments";
+import { getLeadById, updateLeadAddress } from "../db/repositories/leads";
 
 const conditionExtractionSchema = z.object({
   smoking_household: z
@@ -35,6 +36,19 @@ const conditionExtractionSchema = z.object({
     .string()
     .nullable()
     .describe("Any other relevant condition notes, or null"),
+  pickup_address: z
+    .string()
+    .nullable()
+    .describe(
+      "The customer's full pickup address (street, city, state), only if they've stated one clearly enough to geocode. Null if not mentioned or incomplete.",
+    ),
+  seat_count: z
+    .number()
+    .int()
+    .nullable()
+    .describe(
+      "Total number of seats or ~30-inch sections on the item (e.g. a 3-seat couch is 3; a sectional with a chaise plus two armrest pieces is however many such sections were described). Null if not enough detail was given to count.",
+    ),
 });
 
 export type ConditionExtractionResult = z.infer<
@@ -46,7 +60,12 @@ conversation between a couch-pickup resale business and a customer selling their
 
 Only report information the customer has actually stated. If something isn't mentioned,
 use null for that field — never guess or infer beyond what's explicitly said. Keep string
-fields short and factual (a phrase, not a paragraph).`;
+fields short and factual (a phrase, not a paragraph).
+
+pickup_address and seat_count feed a pickup-fee calculator, so precision matters more than
+completeness there: only fill them in when the customer's own words support an exact value.
+A partial address ("west side of town") or a vague item description ("pretty big sectional")
+should stay null rather than being guessed at.`;
 
 export function formatTranscript(messages: ConversationMessage[]): string {
   return messages
@@ -107,7 +126,7 @@ export async function runConditionExtractionForLead(
     ),
   );
 
-  return insertConditionAssessment({
+  const assessment = await insertConditionAssessment({
     leadId,
     smokingHousehold: extracted.smoking_household,
     pets: extracted.pets,
@@ -115,6 +134,16 @@ export async function runConditionExtractionForLead(
     odors: extracted.odors,
     stains: extracted.stains,
     notes: extracted.notes,
+    seatCount: extracted.seat_count,
     photoRefs,
   });
+
+  if (extracted.pickup_address) {
+    const lead = await getLeadById(leadId);
+    if (lead && !lead.address) {
+      await updateLeadAddress(leadId, extracted.pickup_address);
+    }
+  }
+
+  return assessment;
 }

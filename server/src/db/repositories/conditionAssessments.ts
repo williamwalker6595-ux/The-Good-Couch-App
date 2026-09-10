@@ -9,6 +9,7 @@ export interface ConditionAssessment {
   odors: string | null;
   stains: string | null;
   notes: string | null;
+  seat_count: number | null;
   photo_refs: string[];
   created_at: Date;
 }
@@ -34,12 +35,13 @@ export async function insertConditionAssessment(input: {
   odors: string | null;
   stains: string | null;
   notes: string | null;
+  seatCount: number | null;
   photoRefs: string[];
 }): Promise<ConditionAssessment> {
   const result = await pool.query<ConditionAssessment>(
     `INSERT INTO condition_assessments
-       (lead_id, smoking_household, pets, blemishes, odors, stains, notes, photo_refs)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       (lead_id, smoking_household, pets, blemishes, odors, stains, notes, seat_count, photo_refs)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING *`,
     [
       input.leadId,
@@ -49,6 +51,7 @@ export async function insertConditionAssessment(input: {
       input.odors,
       input.stains,
       input.notes,
+      input.seatCount,
       input.photoRefs,
     ],
   );

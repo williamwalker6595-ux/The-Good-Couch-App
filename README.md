@@ -92,14 +92,33 @@ API endpoints so far:
 
 `server/src/ai/conditionExtraction.ts` sends the lead's full conversation transcript to
 Claude (`claude-opus-5`, via `output_config.format` + a Zod schema for guaranteed-shape JSON)
-and extracts `smoking_household`, `pets`, `blemishes`, `odors`, `stains`, and `notes`. Only
-information explicitly stated in the conversation is extracted — the model is instructed to
-use `null` rather than guess. `photo_refs` is populated directly from the inbound messages'
-media URLs (not model-generated, to avoid hallucinated links). Each run inserts a new
-`condition_assessments` row rather than overwriting the previous one, so the history is kept.
+and extracts `smoking_household`, `pets`, `blemishes`, `odors`, `stains`, `notes`,
+`pickup_address`, and `seat_count`. Only information explicitly stated in the conversation is
+extracted — the model is instructed to use `null` rather than guess (the last two fields feed
+the quote calculator below, so they're held to an even stricter "only if unambiguous" bar).
+`photo_refs` is populated directly from the inbound messages' media URLs (not model-generated,
+to avoid hallucinated links). Each run inserts a new `condition_assessments` row rather than
+overwriting the previous one, so the history is kept. A newly-extracted `pickup_address` is
+written to the lead's `address` column, but only if one isn't already on file.
 
 Without `ANTHROPIC_API_KEY` set, the webhook still logs messages normally — extraction is
 just skipped (logged once as a warning-free no-op check, not an error).
+
+## Pickup fee calculator
+
+`server/src/quotes/calculateQuote.ts` computes the exact fee for `mileage`/`full`
+dispositions once a lead has an address (and, for `full`, a `seat_count`):
+
+- **Mileage**: `$3/mi × driving distance + $20`
+- **Full**: `$3/mi × driving distance + $40 + $20 × seat/section count`
+
+Driving distance comes from the Google Maps Distance Matrix API (real road distance, not
+straight-line), from the shop address (`8475 W Colfax Ave, Lakewood, CO`, a constant in that
+file) to the lead's address. The AI in `dispositionSuggestion.ts` still decides *which* type
+applies (free/mileage/full) from playbook signals — the calculator only replaces the dollar
+figure once that type is chosen. If the address or seat count isn't available yet, or the
+Maps API call fails, the suggestion keeps the AI's rough estimate but flags it in `reasoning`
+and caps `confidence` at 0.4 so it's obviously unverified in the approval UI.
 
 ## Running the dashboard
 
@@ -124,6 +143,7 @@ AI extraction/disposition sessions are built).
 | `QUO_WEBHOOK_SIGNING_KEY` | `whsec_...` secret shown when you create the webhook in the Quo dashboard |
 | `QUO_API_BASE_URL` | Override only if Quo's API host differs from the default (`https://api.quo.com`) |
 | `TODOIST_API_TOKEN` | Todoist scheduling API |
+| `GOOGLE_MAPS_API_KEY` | Distance Matrix API — driving-distance pickup fee calculation. Enable "Distance Matrix API" and billing on the Google Cloud project the key belongs to. |
 
 ## Deploying to Railway
 

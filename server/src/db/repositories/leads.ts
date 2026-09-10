@@ -73,6 +73,17 @@ export async function updateLeadStatus(
   return result.rows[0] ?? null;
 }
 
+export async function updateLeadAddress(
+  id: string,
+  address: string,
+): Promise<Lead | null> {
+  const result = await pool.query<Lead>(
+    `UPDATE leads SET address = $2 WHERE id = $1 RETURNING *`,
+    [id, address],
+  );
+  return result.rows[0] ?? null;
+}
+
 export async function listLeads(filter?: {
   status?: LeadStatus;
 }): Promise<Lead[]> {
