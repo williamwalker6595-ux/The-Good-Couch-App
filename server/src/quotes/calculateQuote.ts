@@ -56,3 +56,90 @@ export async function calculateQuoteAmount(input: {
     explanation: `${distanceMiles.toFixed(1)} mi driving distance × $${RATE_PER_MILE}/mi + $${FULL_BASE_FEE} base + ${seatCount} seat(s) × $${FULL_PER_SEAT_FEE} = $${amount}`,
   };
 }
+
+export interface QuoteOption {
+  amount: number | null;
+  explanation: string | null;
+  blockedReason: string | null;
+}
+
+export interface QuoteOptions {
+  free: QuoteOption;
+  mileage: QuoteOption;
+  full: QuoteOption;
+}
+
+/**
+ * Pre-calculates all three disposition options for a lead, for a one-click
+ * approval UI. Options that can't be computed yet (missing address/seat
+ * count, or a Maps lookup failure) come back with a null amount and a
+ * human-readable blockedReason instead of throwing.
+ */
+export async function calculateQuoteOptions(input: {
+  address: string | null;
+  seatCount: number | null;
+}): Promise<QuoteOptions> {
+  const free: QuoteOption = {
+    amount: 0,
+    explanation: "No fee",
+    blockedReason: null,
+  };
+
+  if (!input.address) {
+    const blockedReason = "no pickup address on file yet";
+    return {
+      free,
+      mileage: { amount: null, explanation: null, blockedReason },
+      full: { amount: null, explanation: null, blockedReason },
+    };
+  }
+
+  const [mileage, full] = await Promise.all([
+    calculateQuoteAmount({
+      type: "mileage",
+      address: input.address,
+      seatCount: null,
+    })
+      .then(
+        (calc): QuoteOption => ({
+          amount: calc.amount,
+          explanation: calc.explanation,
+          blockedReason: null,
+        }),
+      )
+      .catch(
+        (err): QuoteOption => ({
+          amount: null,
+          explanation: null,
+          blockedReason:
+            err instanceof Error ? err.message : "distance lookup failed",
+        }),
+      ),
+    calculateQuoteAmount({
+      type: "full",
+      address: input.address,
+      seatCount: input.seatCount,
+    })
+      .then(
+        (calc): QuoteOption => ({
+          amount: calc.amount,
+          explanation: calc.explanation,
+          blockedReason: null,
+        }),
+      )
+      .catch(
+        (err): QuoteOption => ({
+          amount: null,
+          explanation: null,
+          blockedReason:
+            err instanceof MissingQuoteInputError
+              ? "seat/section count not known yet"
+              : err instanceof Error
+                ? err.message
+                : "distance lookup failed",
+        }),
+      ),
+  ]);
+
+  return { free, mileage, full };
+}

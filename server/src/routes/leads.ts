@@ -14,6 +14,7 @@ import {
   DISPOSITION_TYPE_VALUES,
   getDispositionById,
   getLatestDispositionByLead,
+  insertDisposition,
   updateDispositionDecision,
 } from "../db/repositories/dispositions";
 import {
@@ -23,6 +24,7 @@ import {
   updateLeadStatus,
 } from "../db/repositories/leads";
 import { asyncHandler } from "../middleware/asyncHandler";
+import { calculateQuoteOptions } from "../quotes/calculateQuote";
 
 export const leadsRouter = Router();
 
@@ -142,6 +144,76 @@ leadsRouter.post(
       }
       throw err;
     }
+  }),
+);
+
+leadsRouter.get(
+  "/leads/:leadId/disposition/quote-options",
+  asyncHandler(async (req, res) => {
+    const lead = await getLeadById(req.params.leadId);
+    if (!lead) {
+      res.status(404).json({ error: "lead not found" });
+      return;
+    }
+    const conditionAssessment = await getLatestConditionAssessmentByLead(
+      lead.id,
+    );
+    const options = await calculateQuoteOptions({
+      address: lead.address,
+      seatCount: conditionAssessment?.seat_count ?? null,
+    });
+    res.json(options);
+  }),
+);
+
+const quickApproveSchema = z.object({
+  type: z.enum(DISPOSITION_TYPE_VALUES),
+});
+
+leadsRouter.post(
+  "/leads/:leadId/disposition/quick-approve",
+  asyncHandler(async (req, res) => {
+    const lead = await getLeadById(req.params.leadId);
+    if (!lead) {
+      res.status(404).json({ error: "lead not found" });
+      return;
+    }
+
+    const parsed = quickApproveSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten() });
+      return;
+    }
+
+    const conditionAssessment = await getLatestConditionAssessmentByLead(
+      lead.id,
+    );
+    const options = await calculateQuoteOptions({
+      address: lead.address,
+      seatCount: conditionAssessment?.seat_count ?? null,
+    });
+    const option = options[parsed.data.type];
+    if (option.amount === null) {
+      res.status(400).json({
+        error: option.blockedReason ?? "cannot calculate this quote yet",
+      });
+      return;
+    }
+
+    const disposition = await insertDisposition({
+      leadId: lead.id,
+      type: parsed.data.type,
+      suggestedBy: "human",
+      confidence: 1,
+      quoteAmount: option.amount,
+      reasoning: option.explanation,
+    });
+    const approved = await updateDispositionDecision(disposition.id, {
+      status: "approved",
+    });
+    await updateLeadStatus(lead.id, "disposition_approved");
+
+    res.status(201).json(approved);
   }),
 );
 

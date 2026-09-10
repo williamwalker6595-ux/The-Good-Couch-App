@@ -87,6 +87,18 @@ export interface QuoteResponse {
   responded_at: string;
 }
 
+export interface QuoteOption {
+  amount: number | null;
+  explanation: string | null;
+  blockedReason: string | null;
+}
+
+export interface QuoteOptions {
+  free: QuoteOption;
+  mileage: QuoteOption;
+  full: QuoteOption;
+}
+
 export interface ScheduleSlot {
   id: string;
   lead_id: string;
@@ -174,6 +186,21 @@ export function rejectLeadDisposition(
   return apiPost<Disposition>(
     `/leads/${leadId}/disposition/${dispositionId}/reject`,
   );
+}
+
+export function fetchLeadQuoteOptions(
+  leadId: string,
+): Promise<QuoteOptions> {
+  return apiGet<QuoteOptions>(`/leads/${leadId}/disposition/quote-options`);
+}
+
+export function quickApproveDisposition(
+  leadId: string,
+  type: DispositionType,
+): Promise<Disposition> {
+  return apiPost<Disposition>(`/leads/${leadId}/disposition/quick-approve`, {
+    type,
+  });
 }
 
 export function composeQuoteMessagePreview(disposition: Disposition): string {

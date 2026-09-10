@@ -76,10 +76,10 @@ export async function updateDispositionDecision(
 ): Promise<Disposition | null> {
   const result = await pool.query<Disposition>(
     `UPDATE dispositions
-     SET status = $2,
-         type = COALESCE($3, type),
-         quote_amount = CASE WHEN $4 THEN $5 ELSE quote_amount END,
-         approved_at = CASE WHEN $2 = 'approved' THEN now() ELSE approved_at END
+     SET status = $2::disposition_status,
+         type = COALESCE($3::disposition_type, type),
+         quote_amount = CASE WHEN $4::boolean THEN $5::numeric ELSE quote_amount END,
+         approved_at = CASE WHEN $2::disposition_status = 'approved' THEN now() ELSE approved_at END
      WHERE id = $1
      RETURNING *`,
     [
