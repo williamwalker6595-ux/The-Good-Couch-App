@@ -10,6 +10,7 @@ import {
 import { QuoApiError, sendQuoMessage } from "../integrations/quo/client";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { composeQuoteMessage } from "../quotes/composeQuoteMessage";
+import { attemptCreateScheduleTaskForLead } from "../scheduling/scheduleTask";
 
 export const quotesRouter = Router();
 
@@ -96,6 +97,7 @@ quotesRouter.post(
 
     if (parsed.data.customerResponse === "accepted") {
       await updateLeadStatus(lead.id, "accepted");
+      await attemptCreateScheduleTaskForLead(lead.id);
     } else if (parsed.data.customerResponse === "declined") {
       await updateLeadStatus(lead.id, "declined");
     }

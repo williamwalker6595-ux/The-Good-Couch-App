@@ -7,6 +7,7 @@ import { leadsRouter } from "./routes/leads";
 import { messagesRouter } from "./routes/messages";
 import { quotesRouter } from "./routes/quotes";
 import { quoWebhookRouter } from "./routes/quoWebhook";
+import { scheduleRouter } from "./routes/schedule";
 
 export function createApp() {
   const app = express();
@@ -27,6 +28,7 @@ export function createApp() {
   app.use(leadIntakeRouter);
   app.use(leadsRouter);
   app.use(quotesRouter);
+  app.use(scheduleRouter);
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     console.error(err);

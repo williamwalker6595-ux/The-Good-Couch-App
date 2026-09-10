@@ -11,6 +11,7 @@ import {
   QuoteResponse,
 } from "../db/repositories/quoteResponses";
 import { updateLeadStatus } from "../db/repositories/leads";
+import { attemptCreateScheduleTaskForLead } from "../scheduling/scheduleTask";
 import { formatTranscript } from "./conditionExtraction";
 
 const quoteResponseSchema = z.object({
@@ -114,6 +115,7 @@ export async function runQuoteResponseClassificationForLead(
 
   if (classification.response === "accepted") {
     await updateLeadStatus(leadId, "accepted");
+    await attemptCreateScheduleTaskForLead(leadId);
   } else if (classification.response === "declined") {
     await updateLeadStatus(leadId, "declined");
   }

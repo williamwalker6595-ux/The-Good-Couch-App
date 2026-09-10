@@ -4,12 +4,15 @@ import StatusBadge from "../components/StatusBadge";
 import {
   approveLeadDisposition,
   composeQuoteMessagePreview,
+  confirmLeadSchedule,
+  createLeadScheduleTask,
   DISPOSITION_TYPES,
   fetchLead,
   fetchLeadConditionAssessment,
   fetchLeadDisposition,
   fetchLeadMessages,
   fetchLeadQuoteResponse,
+  fetchLeadSchedule,
   QUOTE_CUSTOMER_RESPONSES,
   recordLeadQuoteResponse,
   rejectLeadDisposition,
@@ -22,6 +25,7 @@ import {
   type Lead,
   type QuoteCustomerResponse,
   type QuoteResponse,
+  type ScheduleSlot,
 } from "../api";
 import { formatDateTime, formatStatusLabel } from "../format";
 
@@ -59,6 +63,13 @@ export default function LeadDetailPage() {
     useState<QuoteCustomerResponse>("accepted");
   const [manualFinalAmount, setManualFinalAmount] = useState<string>("");
 
+  const [scheduleSlot, setScheduleSlot] = useState<ScheduleSlot | null>(null);
+  const [scheduleActionLoading, setScheduleActionLoading] = useState(false);
+  const [scheduleActionError, setScheduleActionError] = useState<
+    string | null
+  >(null);
+  const [pickupDatetimeInput, setPickupDatetimeInput] = useState("");
+
   function reload(id: string) {
     let cancelled = false;
     setLoading(true);
@@ -70,6 +81,7 @@ export default function LeadDetailPage() {
       fetchLeadConditionAssessment(id),
       fetchLeadDisposition(id),
       fetchLeadQuoteResponse(id),
+      fetchLeadSchedule(id),
     ])
       .then(
         ([
@@ -78,6 +90,7 @@ export default function LeadDetailPage() {
           assessmentData,
           dispositionData,
           quoteResponseData,
+          scheduleSlotData,
         ]) => {
           if (cancelled) return;
           setLead(leadData);
@@ -90,6 +103,7 @@ export default function LeadDetailPage() {
           setQuoteContent(
             dispositionData ? composeQuoteMessagePreview(dispositionData) : "",
           );
+          setScheduleSlot(scheduleSlotData);
         },
       )
       .catch(() => {
@@ -191,6 +205,37 @@ export default function LeadDetailPage() {
       setQuoteActionError("Failed to record customer response.");
     } finally {
       setQuoteActionLoading(false);
+    }
+  }
+
+  async function handleCreateScheduleTask() {
+    if (!leadId) return;
+    setScheduleActionLoading(true);
+    setScheduleActionError(null);
+    try {
+      await createLeadScheduleTask(leadId);
+      reload(leadId);
+    } catch {
+      setScheduleActionError("Failed to create Todoist task.");
+    } finally {
+      setScheduleActionLoading(false);
+    }
+  }
+
+  async function handleConfirmSchedule() {
+    if (!leadId || pickupDatetimeInput === "") return;
+    setScheduleActionLoading(true);
+    setScheduleActionError(null);
+    try {
+      await confirmLeadSchedule(
+        leadId,
+        new Date(pickupDatetimeInput).toISOString(),
+      );
+      reload(leadId);
+    } catch {
+      setScheduleActionError("Failed to confirm pickup time.");
+    } finally {
+      setScheduleActionLoading(false);
     }
   }
 
@@ -440,6 +485,68 @@ export default function LeadDetailPage() {
           {quoteActionError && <p className="error">{quoteActionError}</p>}
         </div>
       </section>
+
+      {(lead.status === "accepted" || lead.status === "scheduled") && (
+        <section>
+          <h2>Scheduling</h2>
+          <div className="card">
+            {scheduleSlot?.todoist_task_id ? (
+              <dl className="lead-facts">
+                <dt>Todoist task</dt>
+                <dd>{scheduleSlot.todoist_task_id}</dd>
+                <dt>Status</dt>
+                <dd>{formatStatusLabel(scheduleSlot.status)}</dd>
+                <dt>Pickup time</dt>
+                <dd>
+                  {scheduleSlot.pickup_datetime
+                    ? formatDateTime(scheduleSlot.pickup_datetime)
+                    : "Not yet confirmed"}
+                </dd>
+              </dl>
+            ) : (
+              <>
+                <p className="muted">No Todoist task created yet.</p>
+                <div className="button-row">
+                  <button
+                    onClick={handleCreateScheduleTask}
+                    disabled={scheduleActionLoading}
+                  >
+                    Create Todoist task
+                  </button>
+                </div>
+              </>
+            )}
+
+            <p className="muted" style={{ marginTop: "1rem" }}>
+              Once you've coordinated a pickup window with the customer,
+              confirm it here:
+            </p>
+            <div className="disposition-form">
+              <label htmlFor="pickup-datetime">Pickup time</label>
+              <input
+                id="pickup-datetime"
+                type="datetime-local"
+                value={pickupDatetimeInput}
+                onChange={(e) => setPickupDatetimeInput(e.target.value)}
+                disabled={scheduleActionLoading}
+              />
+            </div>
+            <div className="button-row">
+              <button
+                className="button-primary"
+                onClick={handleConfirmSchedule}
+                disabled={scheduleActionLoading || pickupDatetimeInput === ""}
+              >
+                Confirm pickup time
+              </button>
+            </div>
+
+            {scheduleActionError && (
+              <p className="error">{scheduleActionError}</p>
+            )}
+          </div>
+        </section>
+      )}
 
       <section>
         <h2>Conversation</h2>

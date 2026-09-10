@@ -86,6 +86,15 @@ export interface QuoteResponse {
   responded_at: string;
 }
 
+export interface ScheduleSlot {
+  id: string;
+  lead_id: string;
+  todoist_task_id: string | null;
+  pickup_datetime: string | null;
+  status: string;
+  created_at: string;
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 async function apiGet<T>(path: string): Promise<T> {
@@ -201,4 +210,25 @@ export function recordLeadQuoteResponse(
   },
 ): Promise<QuoteResponse> {
   return apiPost<QuoteResponse>(`/leads/${leadId}/quote-response`, input);
+}
+
+export function fetchLeadSchedule(
+  leadId: string,
+): Promise<ScheduleSlot | null> {
+  return apiGet<ScheduleSlot | null>(`/leads/${leadId}/schedule`);
+}
+
+export function createLeadScheduleTask(
+  leadId: string,
+): Promise<ScheduleSlot> {
+  return apiPost<ScheduleSlot>(`/leads/${leadId}/schedule/create-task`);
+}
+
+export function confirmLeadSchedule(
+  leadId: string,
+  pickupDatetime: string,
+): Promise<ScheduleSlot> {
+  return apiPost<ScheduleSlot>(`/leads/${leadId}/schedule`, {
+    pickupDatetime,
+  });
 }
