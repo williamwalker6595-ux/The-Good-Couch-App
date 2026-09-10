@@ -152,11 +152,16 @@ Vite bakes `VITE_API_BASE_URL` into the built JS at build time, so it must be se
 service (not the server service) before building.
 
 1. In the same Railway project, add a new service from the same GitHub repo.
-2. In that service's **Settings → Root Directory**, set it to `web`. This makes Railway use
-   `web/railway.json` (`npm run build` to build, `npm run start` to run) and install only
-   `web/`'s dependencies.
-3. Set `VITE_API_BASE_URL` on this service to the server service's public URL, e.g.
+2. Leave this service's **Root Directory** blank (repo root) — same as the server service.
+   Building from `web/` in isolation hits a real npm bug with Vite/Rolldown's native
+   optional-dependency binaries (npm/cli#4828) because there's no lockfile scoped to `web/`
+   alone; building from root uses the same resolved root `package-lock.json` the server
+   build already uses successfully.
+3. In **Settings → Build**, set a custom build command: `npm run build:web`.
+4. In **Settings → Deploy**, set a custom start command: `npm run start:web`.
+5. Set `VITE_API_BASE_URL` on this service to the server service's public URL, e.g.
    `https://<server-service>.up.railway.app` (no trailing slash). Find that URL on the server
-   service's Settings → Networking tab.
-4. Deploy. Under Settings → Networking on this new service, generate a public domain — that
+   service's Settings → Networking tab. Vite bakes this into the built JS at build time, so
+   it must be set before deploying.
+6. Deploy. Under Settings → Networking on this new service, generate a public domain — that
    URL is the dashboard.
