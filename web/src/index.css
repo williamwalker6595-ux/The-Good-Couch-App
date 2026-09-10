@@ -240,3 +240,57 @@ select {
   border-radius: 6px;
   border: 1px solid var(--border);
 }
+
+button {
+  font: inherit;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.button-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.button-danger {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.button-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.disposition-form {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.disposition-form input {
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.reasoning {
+  margin-top: 0.5rem;
+  font-style: italic;
+  color: var(--muted);
+}

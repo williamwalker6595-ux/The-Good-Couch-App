@@ -48,7 +48,7 @@ Only report information the customer has actually stated. If something isn't men
 use null for that field — never guess or infer beyond what's explicitly said. Keep string
 fields short and factual (a phrase, not a paragraph).`;
 
-function formatTranscript(messages: ConversationMessage[]): string {
+export function formatTranscript(messages: ConversationMessage[]): string {
   return messages
     .map((message) => {
       const speaker = message.direction === "in" ? "Customer" : "Business";

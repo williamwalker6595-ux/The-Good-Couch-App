@@ -62,6 +62,17 @@ export async function findOrCreateLeadByPhone(phone: string): Promise<Lead> {
   return createLead({ name: "Unknown", phone, source: "quo-inbound" });
 }
 
+export async function updateLeadStatus(
+  id: string,
+  status: LeadStatus,
+): Promise<Lead | null> {
+  const result = await pool.query<Lead>(
+    `UPDATE leads SET status = $2 WHERE id = $1 RETURNING *`,
+    [id, status],
+  );
+  return result.rows[0] ?? null;
+}
+
 export async function listLeads(filter?: {
   status?: LeadStatus;
 }): Promise<Lead[]> {

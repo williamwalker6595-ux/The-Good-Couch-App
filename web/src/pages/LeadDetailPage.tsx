@@ -2,13 +2,18 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import StatusBadge from "../components/StatusBadge";
 import {
+  approveLeadDisposition,
+  DISPOSITION_TYPES,
   fetchLead,
   fetchLeadConditionAssessment,
   fetchLeadDisposition,
   fetchLeadMessages,
+  rejectLeadDisposition,
+  suggestLeadDisposition,
   type ConditionAssessment,
   type ConversationMessage,
   type Disposition,
+  type DispositionType,
   type Lead,
 } from "../api";
 import { formatDateTime, formatStatusLabel } from "../format";
@@ -27,17 +32,24 @@ export default function LeadDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!leadId) return;
+  const [dispositionActionLoading, setDispositionActionLoading] =
+    useState(false);
+  const [dispositionActionError, setDispositionActionError] = useState<
+    string | null
+  >(null);
+  const [draftType, setDraftType] = useState<DispositionType>("free");
+  const [draftQuoteAmount, setDraftQuoteAmount] = useState<string>("");
+
+  function reload(id: string) {
     let cancelled = false;
     setLoading(true);
     setError(null);
 
     Promise.all([
-      fetchLead(leadId),
-      fetchLeadMessages(leadId),
-      fetchLeadConditionAssessment(leadId),
-      fetchLeadDisposition(leadId),
+      fetchLead(id),
+      fetchLeadMessages(id),
+      fetchLeadConditionAssessment(id),
+      fetchLeadDisposition(id),
     ])
       .then(([leadData, messagesData, assessmentData, dispositionData]) => {
         if (cancelled) return;
@@ -45,6 +57,8 @@ export default function LeadDetailPage() {
         setMessages(messagesData);
         setConditionAssessment(assessmentData);
         setDisposition(dispositionData);
+        setDraftType(dispositionData?.type ?? "free");
+        setDraftQuoteAmount(dispositionData?.quote_amount ?? "");
       })
       .catch(() => {
         if (!cancelled) setError("Failed to load lead.");
@@ -56,7 +70,63 @@ export default function LeadDetailPage() {
     return () => {
       cancelled = true;
     };
+  }
+
+  useEffect(() => {
+    if (!leadId) return;
+    return reload(leadId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadId]);
+
+  async function handleSuggest() {
+    if (!leadId) return;
+    setDispositionActionLoading(true);
+    setDispositionActionError(null);
+    try {
+      await suggestLeadDisposition(leadId);
+      reload(leadId);
+    } catch {
+      setDispositionActionError("Failed to suggest a disposition.");
+    } finally {
+      setDispositionActionLoading(false);
+    }
+  }
+
+  async function handleApprove() {
+    if (!leadId || !disposition) return;
+    setDispositionActionLoading(true);
+    setDispositionActionError(null);
+    try {
+      await approveLeadDisposition(leadId, disposition.id, {
+        type: draftType,
+        quoteAmount:
+          draftType === "free"
+            ? null
+            : draftQuoteAmount === ""
+              ? null
+              : Number(draftQuoteAmount),
+      });
+      reload(leadId);
+    } catch {
+      setDispositionActionError("Failed to approve disposition.");
+    } finally {
+      setDispositionActionLoading(false);
+    }
+  }
+
+  async function handleReject() {
+    if (!leadId || !disposition) return;
+    setDispositionActionLoading(true);
+    setDispositionActionError(null);
+    try {
+      await rejectLeadDisposition(leadId, disposition.id);
+      reload(leadId);
+    } catch {
+      setDispositionActionError("Failed to reject disposition.");
+    } finally {
+      setDispositionActionLoading(false);
+    }
+  }
 
   if (loading) return <p className="muted">Loading…</p>;
   if (error) return <p className="error">{error}</p>;
@@ -114,18 +184,94 @@ export default function LeadDetailPage() {
         <h2>Disposition</h2>
         <div className="card">
           {disposition ? (
-            <dl className="lead-facts">
-              <dt>Type</dt>
-              <dd>{formatStatusLabel(disposition.type)}</dd>
-              <dt>Suggested by</dt>
-              <dd>{formatStatusLabel(disposition.suggested_by)}</dd>
-              <dt>Quote amount</dt>
-              <dd>{disposition.quote_amount ?? "—"}</dd>
-              <dt>Status</dt>
-              <dd>{formatStatusLabel(disposition.status)}</dd>
-            </dl>
+            <>
+              <dl className="lead-facts">
+                <dt>Type</dt>
+                <dd>{formatStatusLabel(disposition.type)}</dd>
+                <dt>Suggested by</dt>
+                <dd>{formatStatusLabel(disposition.suggested_by)}</dd>
+                <dt>Quote amount</dt>
+                <dd>{disposition.quote_amount ?? "—"}</dd>
+                <dt>Confidence</dt>
+                <dd>
+                  {disposition.confidence !== null
+                    ? `${Math.round(disposition.confidence * 100)}%`
+                    : "—"}
+                </dd>
+                <dt>Status</dt>
+                <dd>{formatStatusLabel(disposition.status)}</dd>
+              </dl>
+              {disposition.reasoning && (
+                <p className="reasoning">"{disposition.reasoning}"</p>
+              )}
+
+              {disposition.status === "pending_approval" && (
+                <>
+                  <div className="disposition-form">
+                    <label htmlFor="disposition-type">Type</label>
+                    <select
+                      id="disposition-type"
+                      value={draftType}
+                      onChange={(e) =>
+                        setDraftType(e.target.value as DispositionType)
+                      }
+                      disabled={dispositionActionLoading}
+                    >
+                      {DISPOSITION_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {formatStatusLabel(type)}
+                        </option>
+                      ))}
+                    </select>
+                    <label htmlFor="disposition-quote">Quote amount ($)</label>
+                    <input
+                      id="disposition-quote"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={draftQuoteAmount}
+                      onChange={(e) => setDraftQuoteAmount(e.target.value)}
+                      disabled={draftType === "free" || dispositionActionLoading}
+                      placeholder={draftType === "free" ? "n/a" : ""}
+                    />
+                  </div>
+                  <div className="button-row">
+                    <button
+                      className="button-primary"
+                      onClick={handleApprove}
+                      disabled={dispositionActionLoading}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      className="button-danger"
+                      onClick={handleReject}
+                      disabled={dispositionActionLoading}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </>
+              )}
+            </>
           ) : (
             <p className="muted">No disposition suggested yet.</p>
+          )}
+
+          {(!disposition || disposition.status === "rejected") && (
+            <div className="button-row">
+              <button onClick={handleSuggest} disabled={dispositionActionLoading}>
+                {dispositionActionLoading
+                  ? "Suggesting…"
+                  : disposition
+                    ? "Suggest again"
+                    : "Suggest disposition"}
+              </button>
+            </div>
+          )}
+
+          {dispositionActionError && (
+            <p className="error">{dispositionActionError}</p>
           )}
         </div>
       </section>

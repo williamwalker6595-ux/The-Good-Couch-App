@@ -4,10 +4,24 @@ import {
   NoConversationError,
   runConditionExtractionForLead,
 } from "../ai/conditionExtraction";
+import {
+  NoConversationError as NoConversationForDispositionError,
+  runDispositionSuggestionForLead,
+} from "../ai/dispositionSuggestion";
 import { listConversationMessagesByLead } from "../db/repositories/conversationMessages";
 import { getLatestConditionAssessmentByLead } from "../db/repositories/conditionAssessments";
-import { getLatestDispositionByLead } from "../db/repositories/dispositions";
-import { getLeadById, LEAD_STATUS_VALUES, listLeads } from "../db/repositories/leads";
+import {
+  DISPOSITION_TYPE_VALUES,
+  getDispositionById,
+  getLatestDispositionByLead,
+  updateDispositionDecision,
+} from "../db/repositories/dispositions";
+import {
+  getLeadById,
+  LEAD_STATUS_VALUES,
+  listLeads,
+  updateLeadStatus,
+} from "../db/repositories/leads";
 import { asyncHandler } from "../middleware/asyncHandler";
 
 export const leadsRouter = Router();
@@ -103,6 +117,88 @@ leadsRouter.get(
       return;
     }
     const disposition = await getLatestDispositionByLead(req.params.leadId);
+    res.json(disposition);
+  }),
+);
+
+leadsRouter.post(
+  "/leads/:leadId/disposition/suggest",
+  asyncHandler(async (req, res) => {
+    const lead = await getLeadById(req.params.leadId);
+    if (!lead) {
+      res.status(404).json({ error: "lead not found" });
+      return;
+    }
+
+    try {
+      const disposition = await runDispositionSuggestionForLead(
+        req.params.leadId,
+      );
+      res.status(201).json(disposition);
+    } catch (err) {
+      if (err instanceof NoConversationForDispositionError) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
+      throw err;
+    }
+  }),
+);
+
+const dispositionDecisionSchema = z.object({
+  type: z.enum(DISPOSITION_TYPE_VALUES).optional(),
+  quoteAmount: z.number().nullable().optional(),
+});
+
+leadsRouter.post(
+  "/leads/:leadId/disposition/:dispositionId/approve",
+  asyncHandler(async (req, res) => {
+    const lead = await getLeadById(req.params.leadId);
+    if (!lead) {
+      res.status(404).json({ error: "lead not found" });
+      return;
+    }
+
+    const parsed = dispositionDecisionSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten() });
+      return;
+    }
+
+    const existing = await getDispositionById(req.params.dispositionId);
+    if (!existing || existing.lead_id !== lead.id) {
+      res.status(404).json({ error: "disposition not found" });
+      return;
+    }
+
+    const disposition = await updateDispositionDecision(
+      req.params.dispositionId,
+      { status: "approved", ...parsed.data },
+    );
+    await updateLeadStatus(lead.id, "disposition_approved");
+    res.json(disposition);
+  }),
+);
+
+leadsRouter.post(
+  "/leads/:leadId/disposition/:dispositionId/reject",
+  asyncHandler(async (req, res) => {
+    const lead = await getLeadById(req.params.leadId);
+    if (!lead) {
+      res.status(404).json({ error: "lead not found" });
+      return;
+    }
+
+    const existing = await getDispositionById(req.params.dispositionId);
+    if (!existing || existing.lead_id !== lead.id) {
+      res.status(404).json({ error: "disposition not found" });
+      return;
+    }
+
+    const disposition = await updateDispositionDecision(
+      req.params.dispositionId,
+      { status: "rejected" },
+    );
     res.json(disposition);
   }),
 );
